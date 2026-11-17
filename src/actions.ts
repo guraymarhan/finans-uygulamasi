@@ -8,6 +8,7 @@ export function payCard(cardId: string, amount: number, date = today()) {
     if (!c) return
     const before = c.balance
     c.balance = Math.max(0, c.balance - amount)
+    if (c.periodSpend) c.periodSpend = Math.min(c.periodSpend, c.balance)
     d.payments.push({ id: uid(), kind: 'card', refId: cardId, amount, date })
     if (before > 0 && c.balance === 0) setTimeout(() => celebrate(`${c.name} borcu sıfırlandı! 🎉`))
   })
@@ -59,6 +60,17 @@ export function setAccountBalance(id: string, balance: number) {
   })
 }
 
+/** Dönem içi (henüz ekstreye girmemiş) harcamayı güncelle. addToTotal: fark toplam borca eklensin mi? */
+export function setPeriodSpend(cardId: string, amount: number, addToTotal: boolean) {
+  update((d) => {
+    const c = d.cards.find((x) => x.id === cardId)
+    if (!c) return
+    if (addToTotal) c.balance = Math.max(0, c.balance + amount - (c.periodSpend ?? 0))
+    c.periodSpend = amount
+    c.periodUpdatedAt = today()
+  })
+}
+
 export function deletePayment(id: string) {
   update((d) => {
     const p = d.payments.find((x) => x.id === id)
@@ -86,7 +98,11 @@ export function saveExpense(e: Omit<Expense, 'id'> & { id?: string }) {
     }
     if (e.cardId) {
       const c = d.cards.find((x) => x.id === e.cardId)
-      if (c) c.balance += e.amount
+      if (c) {
+        c.balance += e.amount
+        // yeni harcama dönem içine yansır (taksitliyse ilk taksit)
+        if (!old) c.periodSpend = (c.periodSpend ?? 0) + e.amount / Math.max(1, e.installments ?? 1)
+      }
     }
     const next = { ...e, id: e.id ?? uid() } as Expense
     if (old) Object.assign(old, next)

@@ -1,7 +1,7 @@
 export type Currency = 'USD' | 'GAU' | 'TRY'
 export type Scope = 'personal' | 'business'
 
-export interface Card { id: string; name: string; limit: number; balance: number; monthlyPayment: number; statementDay: number; dueDay: number }
+export interface Card { id: string; name: string; limit: number; balance: number; monthlyPayment: number; statementDay: number; dueDay: number; periodSpend?: number; periodUpdatedAt?: string }
 export interface Loan {
   id: string
   name: string
