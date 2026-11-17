@@ -62,7 +62,7 @@ export function Expenses() {
         )}
       </Section>
 
-      <Section title="Giderler" action={<AddBtn onClick={() => setEditE({ scope, date: today(), category: CATEGORIES[scope][0] })} label="Gider" />}>
+      <Section title="Giderler" action={<AddBtn onClick={() => setEditE({ scope, date: today(), category: CATEGORIES[scope][0], installments: 1 })} label="Gider" />}>
         <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
           {months.map((m) => (
             <button key={m} onClick={() => setMonth(m)} className={`shrink-0 rounded-full px-3 py-1 text-sm ${m === month ? 'bg-white/12 text-white' : 'bg-white/5 text-mute'}`}>
@@ -84,6 +84,7 @@ export function Expenses() {
                   <div className="text-xs text-mute">
                     {dateLabel(e.date)} · {e.category}
                     {e.cardId && ` · 💳 ${cardName(e.cardId) ?? ''}`}
+                    {(e.installments ?? 1) > 1 && ` · ${e.installments} taksit`}
                   </div>
                 </div>
                 <div className="tnum text-sm font-semibold">{tl(e.amount)}</div>
@@ -101,7 +102,8 @@ export function Expenses() {
               { key: 'amount', label: 'Tutar (₺)', type: 'number', required: true, half: true },
               { key: 'category', label: 'Kategori', type: 'select', options: catOpts, half: true },
               { key: 'cardId', label: 'Nasıl ödendi?', type: 'select', options: cardOpts, hint: 'Kart seçersen tutar o kartın borcuna da eklenir.' },
-              { key: 'date', label: 'Tarih', type: 'date' },
+              { key: 'installments', label: 'Taksit (kartla)', type: 'number', half: true },
+              { key: 'date', label: 'Tarih', type: 'date', half: true },
             ]}
             initial={editE}
             onSubmit={(v) => {
@@ -114,6 +116,7 @@ export function Expenses() {
                 date: v.date || today(),
                 scope: editE.scope ?? scope,
                 fixedId: editE.fixedId,
+                installments: v.cardId ? Math.max(1, Math.round(toNum(v.installments)) || 1) : undefined,
               })
               setEditE(null)
             }}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { update, useData } from '../store'
-import { addMonths, monthKey, monthLabel, monthYearLabel, projection, tl, totals } from '../calc'
+import { addMonths, monthKey, monthLabel, monthYearLabel, payoff, tl, totals } from '../calc'
 import { Section } from '../ui'
 import type { Scope } from '../types'
 
@@ -31,8 +31,8 @@ function Simulator() {
   const t = totals(d)
   const [extra, setExtra] = useState(d.settings.extraMonthly)
   const base = t.monthly + d.settings.personMonthly
-  const p0 = projection(t.total, base)
-  const p1 = projection(t.total, base + extra)
+  const p0 = payoff(d, base)
+  const p1 = payoff(d, base + extra)
   const saved = p0 && p1 ? p0.months - p1.months : 0
   return (
     <Section title="Borç bitiş tahmini">
@@ -76,7 +76,7 @@ function Simulator() {
           )}
         </div>
         <div className="mt-4 text-[11px] leading-snug text-mute">
-          Faiz ve kur değişimi hariç kaba tahmindir. Kart ve kredi aylık ödemeleri{d.settings.personMonthly > 0 ? ' ile kişisel borçlara ayırdığın tutar' : ''} toplanır; kişisel borçlar için aylık tutarı Ayarlar'dan girebilirsin.
+          Faiz ve kur değişimi hariç kaba tahmindir. Faiz ödemeli kredilerin anaparası vade tarihinde kapanmış sayılır. Kart ve kredi aylık ödemeleri{d.settings.personMonthly > 0 ? ' ile kişisel borçlara ayırdığın tutar' : ''} toplanır; kişisel borçlar için aylık tutarı Ayarlar'dan girebilirsin.
         </div>
       </div>
     </Section>

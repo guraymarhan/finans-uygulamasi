@@ -3,9 +3,9 @@ import { useData } from '../store'
 import { dateLabel, daysUntil, tl, upcoming, type Upcoming as U } from '../calc'
 import { payFixed, payLoan } from '../actions'
 import { Empty } from '../ui'
-import { CardPaySheet } from './Debts'
+import { CardPaySheet, InterestPaySheet } from './Debts'
 
-const icon = { card: '💳', loan: '🏦', fixed: '🏢' }
+const icon = { card: '💳', loan: '🏦', fixed: '🏢', interest: '🏦' }
 
 export function UpcomingRow({ u, compact }: { u: U; compact?: boolean }) {
   const [paying, setPaying] = useState(false)
@@ -31,7 +31,7 @@ export function UpcomingRow({ u, compact }: { u: U; compact?: boolean }) {
           <span className="text-xs text-mint">Ödendi ✓</span>
         ) : (
           <button
-            onClick={() => (u.kind === 'card' ? setPaying(true) : u.kind === 'loan' ? payLoan(u.refId) : payFixed(u.refId))}
+            onClick={() => (u.kind === 'card' || u.kind === 'interest' ? setPaying(true) : u.kind === 'loan' ? payLoan(u.refId) : payFixed(u.refId))}
             className="text-xs font-medium text-lilac"
           >
             Öde →
@@ -39,6 +39,7 @@ export function UpcomingRow({ u, compact }: { u: U; compact?: boolean }) {
         )}
       </div>
       {u.kind === 'card' && <CardPaySheet cardId={u.refId} open={paying} onClose={() => setPaying(false)} />}
+      {u.kind === 'interest' && paying && <InterestPaySheet loanId={u.refId} open onClose={() => setPaying(false)} />}
     </div>
   )
 }

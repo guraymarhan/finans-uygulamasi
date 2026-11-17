@@ -1,4 +1,4 @@
-import type { Currency, Data, PersonDebt } from './types'
+import type { Currency, Data, Loan, PersonDebt } from './types'
 
 export const uid = () => crypto.randomUUID()
 export const today = () => new Date().toISOString().slice(0, 10)
@@ -17,16 +17,69 @@ export const dateLabel = (d: string) => `${+d.slice(8, 10)} ${MONTHS[+d.slice(5,
 export const rateOf = (d: Data, c: Currency) => (c === 'USD' ? d.rates.usd : c === 'GAU' ? d.rates.gold : 1)
 export const personPaid = (d: Data, p: PersonDebt) => sum(d.payments.filter((x) => x.kind === 'person' && x.refId === p.id).map((x) => x.amount))
 export const personRemaining = (d: Data, p: PersonDebt) => Math.max(0, p.amount - personPaid(d, p))
-export const loanRemaining = (l: Data['loans'][number]) => Math.max(0, l.totalInstallments - l.paidInstallments) * l.monthlyPayment
+export const isInterestLoan = (l: Loan) => l.kind === 'interest'
+export const loanRemaining = (l: Loan) =>
+  isInterestLoan(l) ? Math.max(0, l.principal ?? 0) : Math.max(0, l.totalInstallments - l.paidInstallments) * l.monthlyPayment
+
+const addM = (iso: string, m: number) => {
+  const [y, mo, da] = iso.split('-').map(Number)
+  const last = new Date(y, mo - 1 + m + 1, 0).getDate()
+  const d = new Date(y, mo - 1 + m, Math.min(da, last))
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const daysBetween = (a: string, b: string) => Math.round((new Date(b + 'T00:00').getTime() - new Date(a + 'T00:00').getTime()) / 864e5)
+
+export interface InterestDue { date: string; amount: number; days: number; last: boolean }
+/** Faiz ödemeli kredinin ödeme takvimi. Faiz = anapara × yıllık oran × gün / 365 (BSMV/KKDF bankaya göre değişir). */
+export function interestSchedule(l: Loan): InterestDue[] {
+  if (!isInterestLoan(l) || !l.firstInterestDate || !l.maturityDate || !l.startDate) return []
+  const out: InterestDue[] = []
+  const step = Math.max(1, l.periodMonths || 3)
+  let prev = l.startDate
+  let date = l.firstInterestDate
+  for (let i = 0; i < 120 && prev < l.maturityDate; i++) {
+    if (date > l.maturityDate) date = l.maturityDate
+    const days = daysBetween(prev, date)
+    out.push({ date, days, last: date === l.maturityDate, amount: ((l.principal ?? 0) * (l.annualRate ?? 0) * days) / 36500 })
+    prev = date
+    date = addM(l.firstInterestDate, step * (i + 1))
+  }
+  return out
+}
+export const interestPaidCount = (d: Data, l: Loan) => d.payments.filter((p) => p.kind === 'interest' && p.refId === l.id).length
+export function nextInterest(d: Data, l: Loan) {
+  const s = interestSchedule(l)
+  const i = interestPaidCount(d, l)
+  const n = s[i]
+  if (!n) return null
+  return { ...n, index: i, total: s.length, amount: l.nextInterest || n.amount }
+}
+
+/** Kartta taksitli harcamaların bu ay yansıyan kısmı */
+export function cardInstallments(d: Data, cardId: string) {
+  const now = monthKey()
+  const items = d.expenses
+    .filter((e) => e.cardId === cardId && (e.installments ?? 1) > 1)
+    .map((e) => {
+      const n = e.installments!
+      const [y, m] = e.date.split('-').map(Number)
+      const [ny, nm] = now.split('-').map(Number)
+      const done = (ny - y) * 12 + (nm - m) // geçen ay sayısı
+      return { e, n, per: e.amount / n, left: Math.max(0, n - done) }
+    })
+    .filter((x) => x.left > 0)
+  return { items, monthly: sum(items.map((x) => x.per)), remaining: sum(items.map((x) => x.per * x.left)) }
+}
 
 export function totals(d: Data) {
   const cards = sum(d.cards.map((c) => Math.max(0, c.balance)))
   const loans = sum(d.loans.map(loanRemaining))
   const people = sum(d.people.map((p) => personRemaining(d, p) * rateOf(d, p.currency)))
+  const accounts = sum((d.accounts ?? []).map((a) => Math.max(0, -a.balance)))
   const monthly =
     sum(d.cards.filter((c) => c.balance > 0).map((c) => Math.min(c.monthlyPayment, c.balance))) +
-    sum(d.loans.filter((l) => loanRemaining(l) > 0).map((l) => l.monthlyPayment))
-  return { cards, loans, people, total: cards + loans + people, monthly }
+    sum(d.loans.filter((l) => !isInterestLoan(l) && loanRemaining(l) > 0).map((l) => l.monthlyPayment))
+  return { cards, loans, people, accounts, total: cards + loans + people + accounts, monthly }
 }
 
 /** Ardışık ödeme yapılan ay sayısı */
@@ -49,7 +102,7 @@ export function addMonths(m: number, from = new Date()) {
 }
 export const monthYearLabel = (d: Date) => `${MONTHS[d.getMonth()]} ${d.getFullYear()}`
 
-export interface Upcoming { date: string; title: string; amount: number; kind: 'card' | 'loan' | 'fixed'; refId: string; paid: boolean; sub: string }
+export interface Upcoming { date: string; title: string; amount: number; kind: 'card' | 'loan' | 'fixed' | 'interest'; refId: string; paid: boolean; sub: string }
 
 const iso = (y: number, m: number, day: number) => {
   const last = new Date(y, m + 1, 0).getDate()
@@ -81,13 +134,32 @@ export function upcoming(d: Data, days = 30): Upcoming[] {
       out.push({ date, title, amount, kind, refId, paid, sub })
     }
     d.cards.filter((c) => c.balance > 0).forEach((c) => push('card', c.id, c.dueDay, c.name, Math.min(c.monthlyPayment, c.balance), 'Kart son ödeme'))
-    d.loans.filter((l) => loanRemaining(l) > 0).forEach((l) => push('loan', l.id, l.dueDay, l.name, l.monthlyPayment, `Kredi taksiti ${l.paidInstallments + 1}/${l.totalInstallments}`))
+    d.loans.filter((l) => !isInterestLoan(l) && loanRemaining(l) > 0).forEach((l) => push('loan', l.id, l.dueDay, l.name, l.monthlyPayment, `Kredi taksiti ${l.paidInstallments + 1}/${l.totalInstallments}`))
     d.fixed.forEach((f) => push('fixed', f.id, f.day, f.title, f.amount, f.scope === 'business' ? 'İş yeri sabit gideri' : 'Sabit gider'))
   }
+  d.loans.filter(isInterestLoan).forEach((l) => {
+    const n = nextInterest(d, l)
+    if (n && n.date <= e) out.push({ date: n.date, title: l.name, amount: n.amount + (n.last ? l.principal ?? 0 : 0), kind: 'interest', refId: l.id, paid: false, sub: n.last ? 'Vade: anapara + faiz' : `Faiz ödemesi ${n.index + 1}/${n.total}` })
+  })
   return out.sort((a, b) => a.date.localeCompare(b.date))
 }
 
 export const daysUntil = (date: string) => Math.round((new Date(date + 'T00:00').getTime() - new Date(today() + 'T00:00').getTime()) / 864e5)
+
+/** Faiz ödemeli kredilerin anaparası vadede tek seferde kapanır; diğer borçlar aylık ödemeyle erir. */
+export function payoff(d: Data, perMonth: number) {
+  const lump = d.loans.filter((l) => isInterestLoan(l) && (l.principal ?? 0) > 0)
+  const rest = totals(d).total - sum(lump.map((l) => l.principal ?? 0))
+  const p = rest > 0 ? projection(rest, perMonth) : { months: 0, date: new Date() }
+  if (!p) return null
+  let date = p.date
+  for (const l of lump) {
+    const m = new Date(l.maturityDate + 'T00:00')
+    if (m > date) date = m
+  }
+  const months = Math.max(0, (date.getFullYear() - new Date().getFullYear()) * 12 + date.getMonth() - new Date().getMonth())
+  return { months, date, lumpDate: lump.length ? date : null }
+}
 
 export function projection(total: number, perMonth: number) {
   if (perMonth <= 0 || total <= 0) return null

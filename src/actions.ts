@@ -33,6 +33,32 @@ export function payPerson(debtId: string, amount: number, date = today()) {
   })
 }
 
+/** Faiz ödemeli kredi: dönem faizini öde; vadede anapara da kapanır. */
+export function payInterest(loanId: string, amount: number, principalPaid: number, date = today()) {
+  update((d) => {
+    const l = d.loans.find((x) => x.id === loanId)
+    if (!l) return
+    d.payments.push({ id: uid(), kind: 'interest', refId: loanId, amount, date })
+    l.nextInterest = undefined
+    if (principalPaid > 0) {
+      l.principal = Math.max(0, (l.principal ?? 0) - principalPaid)
+      d.payments.push({ id: uid(), kind: 'loan', refId: loanId, amount: principalPaid, date })
+    }
+    setTimeout(() => celebrate((l.principal ?? 0) <= 0 ? `${l.name} kapandı! Tebrikler 🎉` : 'Faiz ödemesi kaydedildi 💪'))
+  })
+}
+
+export function setAccountBalance(id: string, balance: number) {
+  update((d) => {
+    const a = d.accounts.find((x) => x.id === id)
+    if (!a) return
+    const wasDebt = a.balance < 0
+    a.balance = balance
+    a.updatedAt = today()
+    if (wasDebt && balance >= 0) setTimeout(() => celebrate(`${a.name} artıya geçti! 🎉`))
+  })
+}
+
 export function deletePayment(id: string) {
   update((d) => {
     const p = d.payments.find((x) => x.id === id)
@@ -43,7 +69,8 @@ export function deletePayment(id: string) {
     }
     if (p.kind === 'loan') {
       const l = d.loans.find((x) => x.id === p.refId)
-      if (l) l.paidInstallments = Math.max(0, l.paidInstallments - 1)
+      if (l?.kind === 'interest') l.principal = (l.principal ?? 0) + p.amount
+      else if (l) l.paidInstallments = Math.max(0, l.paidInstallments - 1)
     }
     d.payments = d.payments.filter((x) => x.id !== id)
   })
