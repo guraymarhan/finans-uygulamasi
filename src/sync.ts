@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react'
 import { getData, onUserChange, replaceAll } from './store'
 import type { Data } from './types'
 
-export const CLIENT_ID: string = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
+export const CLIENT_ID: string = import.meta.env.VITE_GOOGLE_CLIENT_ID || '92383352722-4l2bq8bk0bp185ht25uef7f3qqvpth2a.apps.googleusercontent.com'
 const SCOPE = 'https://www.googleapis.com/auth/drive.appdata'
 const FILE = 'borc-pusulasi.json'
 const LS = 'drive-sync-v1'
