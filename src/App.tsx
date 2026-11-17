@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLoaded } from './store'
 import { Confetti } from './ui'
 import { connect, useSync } from './sync'
+import { LockScreen, useLocked } from './lock'
 import { Home } from './screens/Home'
 import { Debts } from './screens/Debts'
 import { Expenses } from './screens/Expenses'
@@ -32,9 +33,11 @@ export default function App() {
   const loaded = useLoaded()
   const [tab, setTab] = useState<Tab>('home')
   const sync = useSync()
+  const locked = useLocked()
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [tab])
+  if (locked) return <LockScreen />
   if (!loaded) return null
   return (
     <div className="mx-auto min-h-screen max-w-lg px-4 pt-[calc(env(safe-area-inset-top)+14px)] pb-[calc(env(safe-area-inset-bottom)+96px)]">

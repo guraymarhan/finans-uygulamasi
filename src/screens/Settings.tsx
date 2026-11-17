@@ -3,6 +3,7 @@ import { refreshRates, replaceAll, update, useData } from '../store'
 import { num, tl, today } from '../calc'
 import { Form, Section, Sheet, toNum } from '../ui'
 import type { Data } from '../types'
+import { clearPin, hasPin, setPin } from '../lock'
 import { CLIENT_ID, connect, disconnect, syncNow, useSync } from '../sync'
 
 export function Settings() {
@@ -89,6 +90,8 @@ export function Settings() {
           />
         </div>
       </Section>
+
+      <PinLock onMsg={setMsg} />
 
       <DriveSync />
 
@@ -181,6 +184,53 @@ function DriveSync() {
           </>
         )}
       </div>
+    </Section>
+  )
+}
+
+function PinLock({ onMsg }: { onMsg: (m: string) => void }) {
+  const [on, setOn] = useState(hasPin())
+  const [edit, setEdit] = useState(false)
+  const btn = 'flex-1 rounded-2xl bg-white/6 py-3 text-sm text-white'
+  return (
+    <Section title="Şifre kilidi">
+      <div className="glass p-4 text-sm text-mute">
+        {on ? 'Açık. Uygulama açılırken ve 2 dakikadan uzun arka planda kaldıktan sonra şifre ister.' : 'Uygulama açılırken şifre istesin. Şifre her cihazda ayrı belirlenir.'}
+        <div className="mt-3 flex gap-2">
+          <button onClick={() => setEdit(true)} className={on ? btn : 'btn-primary flex-1 text-sm'}>{on ? 'Şifreyi değiştir' : 'Şifre belirle'}</button>
+          {on && (
+            <button
+              onClick={() => {
+                if (!confirm('Şifre kilidi kaldırılsın mı?')) return
+                clearPin()
+                setOn(false)
+                onMsg('Şifre kilidi kaldırıldı')
+              }}
+              className={btn}
+            >
+              Kaldır
+            </button>
+          )}
+        </div>
+      </div>
+      <Sheet open={edit} onClose={() => setEdit(false)} title="Şifre belirle">
+        <Form
+          fields={[
+            { key: 'pin', label: 'Yeni şifre (4-8 rakam)', type: 'password', required: true },
+            { key: 'pin2', label: 'Tekrar', type: 'password', required: true },
+          ]}
+          initial={{}}
+          onSubmit={async (v) => {
+            const p = String(v.pin || '')
+            if (!/^\d{4,8}$/.test(p)) return alert('Şifre 4-8 rakam olmalı.')
+            if (p !== v.pin2) return alert('Şifreler aynı değil.')
+            await setPin(p)
+            setOn(true)
+            setEdit(false)
+            onMsg('Şifre kilidi açıldı ✓')
+          }}
+        />
+      </Sheet>
     </Section>
   )
 }

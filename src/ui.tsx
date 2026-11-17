@@ -79,7 +79,7 @@ export function SourceInfo({ source, amount }: { source: string; amount: number 
 export type FieldSpec = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'date' | 'select' | 'day'
+  type?: 'text' | 'number' | 'date' | 'select' | 'day' | 'password'
   options?: { value: string; label: string }[]
   hint?: string
   required?: boolean
@@ -126,8 +126,8 @@ export function Form({
           ) : (
             <input
               className="inp"
-              type={f.type === 'date' ? 'date' : 'text'}
-              inputMode={f.type === 'number' || f.type === 'day' ? 'decimal' : undefined}
+              type={f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
+              inputMode={f.type === 'number' || f.type === 'day' ? 'decimal' : f.type === 'password' ? 'numeric' : undefined}
               value={v[f.key]}
               placeholder={f.type === 'day' ? '1-31' : ''}
               onChange={(e) => setV({ ...v, [f.key]: e.target.value })}
