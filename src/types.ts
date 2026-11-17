@@ -26,7 +26,7 @@ export interface PersonDebt { id: string; person: string; currency: Currency; am
 /** amount: TL for card/loan, birim (USD / gram) for person */
 export interface Payment { id: string; kind: 'card' | 'loan' | 'person' | 'interest'; refId: string; amount: number; date: string; accountId?: string }
 export interface FixedExpense { id: string; title: string; amount: number; category: string; day: number; cardId?: string; scope: Scope }
-export interface Expense { id: string; title: string; amount: number; category: string; date: string; cardId?: string; scope: Scope; fixedId?: string; installments?: number; accountId?: string; /** true: henüz ödenmedi (ödenecek) */ pending?: boolean }
+export interface Expense { id: string; title: string; amount: number; category: string; date: string; cardId?: string; scope: Scope; fixedId?: string; installments?: number; accountId?: string; /** true: henüz ödenmedi (ödenecek) */ pending?: boolean; /** ödenecekken Öde ile kapatıldı */ settled?: boolean }
 export interface Snapshot { month: string; total: number; cards: number; loans: number; people: number }
 export interface Rates { usd: number; gold: number; updatedAt: string; source: string }
 export interface Settings { extraMonthly: number; personMonthly: number }

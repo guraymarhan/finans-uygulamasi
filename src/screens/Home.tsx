@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useData } from '../store'
-import { dateLabel, monthKey, monthDues, paidSoFar, tl, totals, upcoming } from '../calc'
+import { dateLabel, monthKey, monthDues, num, paidSoFar, tl, totals, upcoming } from '../calc'
 import { Bar, Ring, Section, Segmented } from '../ui'
 import type { Scope } from '../types'
 import type { Tab } from '../App'
@@ -50,7 +50,7 @@ function Personal({ go }: { go: (t: Tab) => void }) {
               <div className="text-[11px] text-mute">Toplam borç</div>
               <div className="tnum text-base font-bold">{tl(t.total)}</div>
             </Ring>
-            <div className="mt-1 text-sm font-semibold grad-text">%{Math.round(progress * 100)} ödendi</div>
+            <div className="mt-1 text-sm font-semibold grad-text">%{num(progress * 100, progress < 0.1 ? 1 : 0)} ödendi</div>
           </button>
           <button onClick={() => go('expenses')} className="flex flex-col items-center">
             <Ring value={bizAll ? bizPaid / bizAll : 0} size={140}>
