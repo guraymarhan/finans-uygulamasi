@@ -49,8 +49,8 @@ function Personal({ go }: { go: (t: Tab) => void }) {
             <Ring value={progress} size={140}>
               <div className="text-[11px] text-mute">Toplam borç</div>
               <div className="tnum text-base font-bold">{tl(t.total)}</div>
-              {paidTotal > 0 && <div className="text-[11px] font-semibold grad-text">%{Math.round(progress * 100)} ödendi</div>}
             </Ring>
+            <div className="mt-1 text-sm font-semibold grad-text">%{Math.round(progress * 100)} ödendi</div>
           </button>
           <button onClick={() => go('expenses')} className="flex flex-col items-center">
             <Ring value={bizAll ? bizPaid / bizAll : 0} size={140}>
@@ -58,14 +58,8 @@ function Personal({ go }: { go: (t: Tab) => void }) {
               <div className="tnum text-base font-bold">{tl(bizAll)}</div>
               <div className="text-[11px] text-mute">{bizAll ? `${tl(bizPaid)} ödendi` : 'sabit gider yok'}</div>
             </Ring>
+            <div className="mt-1 text-sm font-semibold grad-text">%{bizAll ? Math.round((bizPaid / bizAll) * 100) : 0} ödendi</div>
           </button>
-        </div>
-        <div className="mt-2 text-center text-xs text-mute">
-          {paidTotal > 0 ? (
-            <>Şimdiye kadar <b className="text-mint">{tl(paidTotal)}</b> ödeme kaydettin.</>
-          ) : (
-            'Ödeme yaptıkça soldaki halka dolacak.'
-          )}
         </div>
         <button onClick={() => go('upcoming')} className="mt-4 block w-full rounded-2xl bg-white/5 px-4 py-3 text-left">
           <div className="flex items-end justify-between">
@@ -97,6 +91,7 @@ function Personal({ go }: { go: (t: Tab) => void }) {
             ['Krediler', t.loans, '🏦'],
             ['Kişisel borçlar', t.people, '🤝'],
             ...(d.accounts.length ? [['Ek hesap / avans', t.accounts, '🏧']] : []),
+            ...(t.bills > 0 ? [['Bu ayın ödenmemiş giderleri', t.bills, '🧾']] : []),
           ].map(([label, v, e]) => (
             <button key={label as string} onClick={() => go('debts')} className="flex w-full items-center gap-3 px-4 py-3.5 text-left">
               <span className="text-xl">{e}</span>
