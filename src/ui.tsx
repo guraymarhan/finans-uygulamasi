@@ -51,26 +51,27 @@ export function SourceInfo({ source, amount }: { source: string; amount: number 
     title = c.name
   } else return null
   const total = own + limitLeft + used || 1
-  const room = own + limitLeft
   const pct = (n: number) => `${(n / total) * 100}%`
+  const fromLimit = Math.max(0, Math.min(amount, own + limitLeft) - own)
+  const isAcc = source.startsWith('acc:')
   return (
     <div className="col-span-2 rounded-2xl bg-white/5 p-3 text-xs">
-      <div className="mb-2 flex justify-between">
+      <div className="mb-2 flex items-end justify-between">
         <span className="text-mute">{title}</span>
-        <span className="tnum font-semibold">Ödenebilir {tl(room)}</span>
+        {isAcc && <span className={`tnum text-sm font-bold ${own > 0 ? 'text-mint' : ''}`}>{tl(own)}</span>}
       </div>
       <div className="flex h-2.5 overflow-hidden rounded-full bg-white/8">
         <div className="bg-mint" style={{ width: pct(own) }} />
-        <div className="bg-lilac" style={{ width: pct(limitLeft) }} />
-        <div className="bg-rose/50" style={{ width: pct(used) }} />
+        <div className="bg-sun/45" style={{ width: pct(limitLeft) }} />
+        <div className="bg-rose/60" style={{ width: pct(used) }} />
       </div>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-mute">
-        {own > 0 && <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-mint" />Para {tl(own)}</span>}
-        <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-lilac" />Kalan limit {tl(limitLeft)}</span>
-        {used > 0 && <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-rose/50" />Kullanılan {tl(used)}</span>}
+        {isAcc && <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-mint" />Param {tl(own)}</span>}
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-sun/45" />Limit {tl(limitLeft)}</span>
+        {used > 0 && <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-rose/60" />Borç {tl(used)}</span>}
       </div>
-      {amount > room && <div className="mt-2 text-sun">Bu ödeme kullanılabilir tutarı {tl(amount - room)} aşıyor.</div>}
-      {amount > 0 && amount <= room && own > 0 && amount > own && <div className="mt-2 text-sun">{tl(amount - own)} ek hesap / avans limitinden kullanılacak.</div>}
+      {isAcc && fromLimit > 0 && <div className="mt-2 text-sun">{tl(fromLimit)} limitten (borç)</div>}
+      {amount > own + limitLeft && <div className="mt-2 text-rose">{tl(amount - own - limitLeft)} yetmiyor</div>}
     </div>
   )
 }

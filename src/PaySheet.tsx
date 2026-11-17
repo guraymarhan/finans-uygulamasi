@@ -3,7 +3,7 @@ import { accountRoom, tl, today } from './calc'
 import { Form, Sheet, toNum } from './ui'
 import type { Source } from './actions'
 
-/** Renkli işaret: yeşil rahat, sarı limitin yarısından azı kaldı, kırmızı %10'dan az */
+/** Kart limiti işareti: yeşil rahat, sarı yarıdan az, kırmızı %10'dan az */
 const dot = (room: number, max: number) => (max <= 0 || room <= 0 ? '🔴' : room / max < 0.1 ? '🔴' : room / max < 0.5 ? '🟡' : '🟢')
 
 export function useSourceOptions(allowCards: boolean) {
@@ -12,12 +12,13 @@ export function useSourceOptions(allowCards: boolean) {
     { value: '', label: '💵 Nakit' },
     ...d.accounts.map((a) => {
       const x = accountRoom(a)
-      return { value: `acc:${a.id}`, label: `${dot(x.room, a.limit + Math.max(0, a.balance))} ${a.name} · ödenebilir ${tl(x.room)}` }
+      const mark = x.own > 0 ? '🟢' : x.limitLeft > 0 ? '🟡' : '🔴'
+      return { value: `acc:${a.id}`, label: `${mark} ${a.name}  ${tl(x.own)}${a.limit ? `  (+${tl(x.limitLeft)})` : ''}` }
     }),
     ...(allowCards
       ? d.cards.map((c) => {
           const room = Math.max(0, c.limit - c.balance)
-          return { value: `card:${c.id}`, label: `${c.limit ? dot(room, c.limit) : '💳'} ${c.name}${c.limit ? ` · ${tl(room)} limit` : ''}` }
+          return { value: `card:${c.id}`, label: `${c.limit ? dot(room, c.limit) : '💳'} ${c.name}${c.limit ? `  (${tl(room)})` : ''}` }
         })
       : []),
   ]
@@ -46,7 +47,7 @@ export function PaySheet({
     <Sheet open onClose={onClose} title={title}>
       <Form
         fields={[
-          { key: 'source', label: 'Nereden ödedin?', type: 'select', options, hint: 'Kart seçersen tutar kartın borcuna eklenir, hesap seçersen hesabın bakiyesinden düşer.' },
+          { key: 'source', label: 'Nereden ödedin?', type: 'select', options },
           ...(amountEditable ? [{ key: 'amount', label: 'Tutar (₺)', type: 'number' as const, required: true, half: true }] : []),
           { key: 'date', label: 'Tarih', type: 'date', half: amountEditable },
         ]}
