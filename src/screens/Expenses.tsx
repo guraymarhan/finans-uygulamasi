@@ -98,8 +98,8 @@ export function Expenses() {
           <Form
             fields={[
               { key: 'title', label: 'Açıklama', required: true },
-              { key: 'amount', label: 'Tutar (₺)', type: 'number', required: true },
-              { key: 'category', label: 'Kategori', type: 'select', options: catOpts },
+              { key: 'amount', label: 'Tutar (₺)', type: 'number', required: true, half: true },
+              { key: 'category', label: 'Kategori', type: 'select', options: catOpts, half: true },
               { key: 'cardId', label: 'Nasıl ödendi?', type: 'select', options: cardOpts, hint: 'Kart seçersen tutar o kartın borcuna da eklenir.' },
               { key: 'date', label: 'Tarih', type: 'date' },
             ]}
@@ -134,9 +134,9 @@ export function Expenses() {
           <Form
             fields={[
               { key: 'title', label: 'Ad (örn. Dükkan kirası)', required: true },
-              { key: 'amount', label: 'Aylık tutar (₺)', type: 'number', required: true },
+              { key: 'amount', label: 'Aylık tutar (₺)', type: 'number', required: true, half: true },
               { key: 'category', label: 'Kategori', type: 'select', options: catOpts },
-              { key: 'day', label: 'Ödeme günü', type: 'day' },
+              { key: 'day', label: 'Ödeme günü', type: 'day', half: true },
               { key: 'cardId', label: 'Genelde nasıl ödüyorsun?', type: 'select', options: cardOpts, hint: 'Kart seçersen "ödendi" dediğinde kart borcuna eklenir.' },
             ]}
             initial={editF}

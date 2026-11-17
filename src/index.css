@@ -26,6 +26,11 @@ body {
 }
 input, select, button, textarea { font: inherit; }
 input, select { font-size: 16px; } /* iOS zoom engeli */
+input, select { min-width: 0; max-width: 100%; box-sizing: border-box; }
+input[type="date"] { -webkit-appearance: none; appearance: none; display: block; min-height: 50px; }
+input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+select { -webkit-appearance: none; appearance: none; background-image: linear-gradient(45deg, transparent 50%, #8b93b8 50%), linear-gradient(135deg, #8b93b8 50%, transparent 50%); background-position: calc(100% - 20px) 50%, calc(100% - 15px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 36px !important; }
+html, body { overflow-x: hidden; max-width: 100vw; }
 
 @utility glass {
   background: linear-gradient(180deg, #ffffff0d, #ffffff05);

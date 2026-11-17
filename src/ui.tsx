@@ -1,25 +1,32 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useParty } from './store'
 
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : ''
+    if (!open) return
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
   }, [open])
   if (!open) return null
-  return (
+  // Body'ye taşınır: animasyonlu / bulanık kapsayıcılar içinde fixed konum bozulmasın
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="rise w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-t-[28px] border-t border-line bg-panel px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+20px)]"
+        className="rise w-full max-w-lg max-h-[calc(100dvh-env(safe-area-inset-top)-12px)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-[28px] border-t border-line bg-panel px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+20px)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-white/15" />
-        <div className="mb-4 flex items-center justify-between">
+        <div className="sticky -top-3 z-10 -mx-5 mb-4 flex items-center justify-between bg-panel px-5 py-2">
           <h3 className="text-lg font-semibold">{title}</h3>
           <button onClick={onClose} className="rounded-full bg-white/5 px-3 py-1 text-sm text-mute">Kapat</button>
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -30,6 +37,7 @@ export type FieldSpec = {
   options?: { value: string; label: string }[]
   hint?: string
   required?: boolean
+  half?: boolean
 }
 
 export function Form({
@@ -54,15 +62,15 @@ export function Form({
   const missing = fields.some((f) => f.required && !v[f.key])
   return (
     <form
-      className="space-y-3"
+      className="grid grid-cols-2 gap-3"
       onSubmit={(e) => {
         e.preventDefault()
         if (!missing) onSubmit(v)
       }}
     >
       {fields.map((f) => (
-        <label key={f.key} className="block">
-          <span className="mb-1 block text-xs font-medium tracking-wide text-mute">{f.label}</span>
+        <label key={f.key} className={`block min-w-0 ${f.half ? 'col-span-1' : 'col-span-2'}`}>
+          <span className="mb-1 block truncate text-xs font-medium tracking-wide text-mute">{f.label}</span>
           {f.type === 'select' ? (
             <select className="inp" value={v[f.key]} onChange={(e) => setV({ ...v, [f.key]: e.target.value })}>
               {f.options!.map((o) => (
@@ -82,12 +90,12 @@ export function Form({
           {f.hint && <span className="mt-1 block text-xs text-mute/80">{f.hint}</span>}
         </label>
       ))}
-      <button disabled={missing} className="btn-primary mt-2 w-full disabled:opacity-40">{submitLabel}</button>
+      <button disabled={missing} className="btn-primary col-span-2 mt-1 w-full disabled:opacity-40">{submitLabel}</button>
       {onDelete && (
         <button
           type="button"
           onClick={() => confirm('Silinsin mi?') && onDelete()}
-          className="w-full rounded-2xl py-3 text-sm text-rose/80"
+          className="col-span-2 w-full rounded-2xl py-2 text-sm text-rose/80"
         >
           Sil
         </button>
