@@ -110,10 +110,10 @@ function Cards() {
             fields={[
               { key: 'name', label: 'Kart adı', required: true },
               { key: 'balance', label: 'Toplam borç (₺)', type: 'number', hint: 'Ekstre + dönem içi harcamalar dahil güncel borç' },
-              { key: 'monthlyPayment', label: 'Aylık ödediğin / asgari tutar (₺)', type: 'number' },
-              { key: 'limit', label: 'Kart limiti (₺)', type: 'number' },
-              { key: 'statementDay', label: 'Hesap kesim günü', type: 'day' },
-              { key: 'dueDay', label: 'Son ödeme günü', type: 'day' },
+              { key: 'monthlyPayment', label: 'Aylık ödeme (₺)', type: 'number', half: true },
+              { key: 'limit', label: 'Limit (₺)', type: 'number', half: true },
+              { key: 'statementDay', label: 'Hesap kesim günü', type: 'day', half: true },
+              { key: 'dueDay', label: 'Son ödeme günü', type: 'day', half: true },
             ]}
             initial={edit}
             onSubmit={(v) => {
@@ -200,8 +200,8 @@ function Loans() {
             fields={[
               { key: 'name', label: 'Kredi adı (banka / tür)', required: true },
               { key: 'monthlyPayment', label: 'Aylık taksit (₺)', type: 'number', required: true },
-              { key: 'totalInstallments', label: 'Toplam taksit sayısı', type: 'number', required: true },
-              { key: 'paidInstallments', label: 'Ödenmiş taksit sayısı', type: 'number' },
+              { key: 'totalInstallments', label: 'Toplam taksit', type: 'number', required: true, half: true },
+              { key: 'paidInstallments', label: 'Ödenmiş taksit', type: 'number', half: true },
               { key: 'dueDay', label: 'Ödeme günü', type: 'day' },
             ]}
             initial={edit}
