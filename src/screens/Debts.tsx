@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { update, useData } from '../store'
 import { addMonths, cardInstallments, dateLabel, fmtUnit, interestPaidCount, interestSchedule, isInterestLoan, loanRemaining, nextInterest, monthYearLabel, num, personPaid, personRemaining, rateOf, tl, today, uid } from '../calc'
-import { deletePayment, payCard, payInterest, payLoan, payPerson, saveExpense, setAccountBalance } from '../actions'
+import { deletePayment, setPeriodSpend, payCard, payInterest, payLoan, payPerson, saveExpense, setAccountBalance } from '../actions'
 import { AddBtn, Bar, Empty, Form, Section, Segmented, Sheet, toDay, toNum } from '../ui'
 import type { Account, Card, Currency, Loan, PersonDebt, Scope } from '../types'
 import { CATEGORIES } from './Expenses'
@@ -55,6 +55,50 @@ export function CardPaySheet({ cardId, open, onClose }: { cardId: string; open: 
   )
 }
 
+/** Son hesap kesiminden sonra dönem içi tutar güncellenmediyse true */
+function periodStale(c: Card) {
+  if (!c.periodUpdatedAt) return false
+  const now = new Date()
+  const cut = new Date(now.getFullYear(), now.getMonth(), Math.min(c.statementDay, 28))
+  if (cut > now) cut.setMonth(cut.getMonth() - 1)
+  return new Date(c.periodUpdatedAt + 'T23:59') < cut
+}
+
+function PeriodSheet({ cardId, onClose }: { cardId: string; onClose: () => void }) {
+  const d = useData()
+  const c = d.cards.find((x) => x.id === cardId)
+  const [mode, setMode] = useState<'in' | 'add'>('in')
+  if (!c) return null
+  return (
+    <Sheet open onClose={onClose} title={`${c.name} · dönem içi`}>
+      <div className="mb-2 text-xs text-mute">Bu toplam borcuma:</div>
+      <div className="mb-3">
+        <Segmented value={mode} onChange={setMode} options={[{ value: 'in', label: 'Zaten dahil' }, { value: 'add', label: 'Dahil değil, ekle' }]} />
+      </div>
+      <Form
+        key={mode}
+        fields={[
+          {
+            key: 'amount',
+            label: 'Güncel dönem içi harcama (₺)',
+            type: 'number',
+            hint:
+              mode === 'in'
+                ? `Toplam borç değişmez (${tl(c.balance)}), sadece ne kadarının dönem içi olduğu görünür.`
+                : `Önceki dönem içi tutarla fark toplam borca eklenir. Şu an toplam ${tl(c.balance)}.`,
+          },
+        ]}
+        initial={{ amount: c.periodSpend || '' }}
+        onSubmit={(v) => {
+          setPeriodSpend(c.id, toNum(v.amount), mode === 'add')
+          onClose()
+        }}
+      />
+      <div className="mt-3 text-xs leading-snug text-mute">Banka uygulamasındaki "dönem içi harcamalar" rakamını girmen yeterli. Her hesap kesiminden sonra güncellersen ekstre ve dönem içi ayrımı doğru kalır.</div>
+    </Sheet>
+  )
+}
+
 function CardSpendSheet({ cardId, onClose }: { cardId: string; onClose: () => void }) {
   const d = useData()
   const c = d.cards.find((x) => x.id === cardId)
@@ -91,6 +135,7 @@ function Cards() {
   const [edit, setEdit] = useState<Partial<Card> | null>(null)
   const [pay, setPay] = useState<string | null>(null)
   const [spend, setSpend] = useState<string | null>(null)
+  const [period, setPeriod] = useState<string | null>(null)
   const total = d.cards.reduce((a, c) => a + c.balance, 0)
   const limit = d.cards.reduce((a, c) => a + c.limit, 0)
   return (
@@ -116,7 +161,19 @@ function Cards() {
                   </div>
                   <button onClick={() => setEdit(c)} className="chip">Düzenle</button>
                 </div>
-                <div className="tnum mt-3 text-2xl font-bold">{c.balance > 0 ? tl(c.balance) : 'Borç yok 🎉'}</div>
+                <div className="mt-3 text-xs text-mute">Toplam borç</div>
+                <div className="tnum text-2xl font-bold">{c.balance > 0 ? tl(c.balance) : 'Borç yok 🎉'}</div>
+                <button onClick={() => setPeriod(c.id)} className="mt-2 grid w-full grid-cols-2 gap-2 text-left">
+                  <div className="rounded-xl bg-white/6 px-3 py-2">
+                    <div className="text-[11px] text-mute">Dönem içi</div>
+                    <div className="tnum text-sm font-semibold">{tl(c.periodSpend ?? 0)}</div>
+                  </div>
+                  <div className="rounded-xl bg-white/6 px-3 py-2">
+                    <div className="text-[11px] text-mute">Ekstre borcu</div>
+                    <div className="tnum text-sm font-semibold">{tl(Math.max(0, c.balance - (c.periodSpend ?? 0)))}</div>
+                  </div>
+                </button>
+                {periodStale(c) && <div className="mt-1.5 text-xs text-sun">Hesap kesimi geçti, dönem içi tutarı güncelle →</div>}
                 {c.limit > 0 && (
                   <>
                     <Bar value={1 - c.balance / c.limit} className="mt-2" />
@@ -145,6 +202,7 @@ function Cards() {
       <History kind="card" />
       {pay && <CardPaySheet cardId={pay} open onClose={() => setPay(null)} />}
       {spend && <CardSpendSheet cardId={spend} onClose={() => setSpend(null)} />}
+      {period && <PeriodSheet cardId={period} onClose={() => setPeriod(null)} />}
       <Sheet open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'Kartı düzenle' : 'Yeni kart'}>
         {edit && (
           <Form
@@ -159,6 +217,7 @@ function Cards() {
             initial={edit}
             onSubmit={(v) => {
               const c: Card = {
+                ...(edit as Card),
                 id: edit.id ?? uid(),
                 name: v.name,
                 balance: toNum(v.balance),
