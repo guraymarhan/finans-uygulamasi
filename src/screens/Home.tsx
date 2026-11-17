@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useData } from '../store'
-import { dateLabel, monthKey, monthYearLabel, payoff, streak, tl, totals, upcoming } from '../calc'
+import { dateLabel, monthKey, monthDues, paidSoFar, tl, totals, upcoming } from '../calc'
 import { Bar, Ring, Section, Segmented } from '../ui'
 import type { Scope } from '../types'
 import type { Tab } from '../App'
@@ -31,37 +31,64 @@ export function Home({ go }: { go: (t: Tab) => void }) {
 function Personal({ go }: { go: (t: Tab) => void }) {
   const d = useData()
   const t = totals(d)
-  const progress = d.peak > 0 ? (d.peak - t.total) / d.peak : 0
-  const s = streak(d)
-  const perMonth = t.monthly + d.settings.personMonthly + d.settings.extraMonthly
-  const proj = payoff(d, perMonth)
-  const prev = d.snapshots.filter((x) => x.month < monthKey()).at(-1)
-  const diff = prev ? prev.total - t.total : 0
-  const next = upcoming(d, 30).filter((u) => !u.paid && u.kind !== 'fixed').slice(0, 3)
+  const paidTotal = paidSoFar(d)
+  const progress = paidTotal + t.total > 0 ? paidTotal / (paidTotal + t.total) : 0
+  const dues = monthDues(d)
+  const dueAll = dues.reduce((a, x) => a + x.amount, 0)
+  const duePaid = dues.filter((x) => x.paid).reduce((a, x) => a + x.amount, 0)
+  const biz = dues.filter((x) => x.scope === 'business')
+  const bizAll = biz.reduce((a, x) => a + x.amount, 0)
+  const bizPaid = biz.filter((x) => x.paid).reduce((a, x) => a + x.amount, 0)
+  const next = upcoming(d, 30).filter((u) => !u.paid).slice(0, 8)
 
   return (
     <>
-      <div className="glass rise mt-4 flex flex-col items-center p-5">
-        <Ring value={progress} size={190}>
-          <div className="text-xs text-mute">Toplam borç</div>
-          <div className="tnum text-2xl font-bold">{tl(t.total)}</div>
-          {d.peak > 0 && <div className="mt-1 text-xs font-semibold grad-text">%{Math.round(progress * 100)} azaldı</div>}
-        </Ring>
-        <div className="mt-3 text-center text-sm text-mute">
-          {progress > 0 ? (
-            <>Zirveden bu yana <b className="text-mint">{tl(d.peak - t.total)}</b> erittin.</>
-          ) : t.total > 0 ? (
-            'Başlangıç noktan burası. Her ödeme bu halkayı dolduracak.'
+      <div className="glass rise mt-4 p-4">
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => go('debts')} className="flex flex-col items-center">
+            <Ring value={progress} size={140}>
+              <div className="text-[11px] text-mute">Toplam borç</div>
+              <div className="tnum text-base font-bold">{tl(t.total)}</div>
+              {paidTotal > 0 && <div className="text-[11px] font-semibold grad-text">%{Math.round(progress * 100)} ödendi</div>}
+            </Ring>
+          </button>
+          <button onClick={() => go('expenses')} className="flex flex-col items-center">
+            <Ring value={bizAll ? bizPaid / bizAll : 0} size={140}>
+              <div className="text-[11px] text-mute">İş yeri bu ay</div>
+              <div className="tnum text-base font-bold">{tl(bizAll)}</div>
+              <div className="text-[11px] text-mute">{bizAll ? `${tl(bizPaid)} ödendi` : 'sabit gider yok'}</div>
+            </Ring>
+          </button>
+        </div>
+        <div className="mt-2 text-center text-xs text-mute">
+          {paidTotal > 0 ? (
+            <>Şimdiye kadar <b className="text-mint">{tl(paidTotal)}</b> ödeme kaydettin.</>
           ) : (
-            'Borç yok, harika!'
+            'Ödeme yaptıkça soldaki halka dolacak.'
           )}
         </div>
-        <div className="mt-4 grid w-full grid-cols-3 gap-2 text-center">
-          <Mini label="Seri" value={`${s} ay`} emoji="🔥" />
-          <Mini label="Bu ay" value={diff > 0 ? `-${tl(diff)}` : diff < 0 ? `+${tl(-diff)}` : '—'} emoji={diff > 0 ? '📉' : '🧭'} />
-          <Mini label="Borçsuz" value={proj ? monthYearLabel(proj.date) : '—'} emoji="🏁" />
-        </div>
+        <button onClick={() => go('upcoming')} className="mt-4 block w-full rounded-2xl bg-white/5 px-4 py-3 text-left">
+          <div className="flex items-end justify-between">
+            <div>
+              <div className="text-xs text-mute">Bu ayın ödemeleri · kişisel + iş yeri</div>
+              <div className="tnum text-xl font-bold">{tl(dueAll - duePaid)} <span className="text-xs font-normal text-mute">bekliyor</span></div>
+            </div>
+            <div className="tnum text-right text-xs text-mute">
+              {tl(duePaid)} / {tl(dueAll)}
+              <div>{dues.filter((x) => x.paid).length}/{dues.length} ödendi</div>
+            </div>
+          </div>
+          <Bar value={dueAll ? duePaid / dueAll : 0} className="mt-2" />
+        </button>
       </div>
+
+      <Section title="Sıradaki ödemeler" action={<button onClick={() => go('upcoming')} className="text-sm text-mint">Tümü</button>}>
+        {next.length ? (
+          <div className="glass divide-y divide-line">{next.map((u) => <UpcomingRow key={u.kind + u.refId + u.date} u={u} compact />)}</div>
+        ) : (
+          <div className="glass p-4 text-sm text-mute">Önümüzdeki 30 günde bekleyen ödeme yok ✨</div>
+        )}
+      </Section>
 
       <Section title="Dağılım">
         <div className="glass divide-y divide-line">
@@ -85,14 +112,6 @@ function Personal({ go }: { go: (t: Tab) => void }) {
             <span className="tnum font-semibold">{tl(t.monthly)}</span>
           </div>
         </div>
-      </Section>
-
-      <Section title="Sıradaki ödemeler" action={<button onClick={() => go('upcoming')} className="text-sm text-mint">Tümü</button>}>
-        {next.length ? (
-          <div className="glass divide-y divide-line">{next.map((u) => <UpcomingRow key={u.kind + u.refId + u.date} u={u} compact />)}</div>
-        ) : (
-          <div className="glass p-4 text-sm text-mute">Önümüzdeki 30 günde bekleyen ödeme yok ✨</div>
-        )}
       </Section>
       {d.rates.usd > 0 && (
         <div className="mt-4 text-center text-xs text-mute">
@@ -140,14 +159,3 @@ function Business({ go }: { go: (t: Tab) => void }) {
     </>
   )
 }
-
-function Mini({ label, value, emoji }: { label: string; value: string; emoji: string }) {
-  return (
-    <div className="rounded-2xl bg-white/5 px-2 py-2.5">
-      <div className="text-base">{emoji}</div>
-      <div className="tnum mt-0.5 truncate text-sm font-semibold">{value}</div>
-      <div className="text-[11px] text-mute">{label}</div>
-    </div>
-  )
-}
-

@@ -112,8 +112,8 @@ const iso = (y: number, m: number, day: number) => {
 
 export function upcoming(d: Data, days = 30): Upcoming[] {
   const now = new Date()
-  const start = new Date(now)
-  start.setDate(start.getDate() - 7)
+  // bu ayın başından itibaren: ödenmemiş geçmiş günlü ödemeler de listede kalsın
+  const start = new Date(now.getFullYear(), now.getMonth(), 1, 12)
   const end = new Date(now)
   end.setDate(end.getDate() + days)
   const s = start.toISOString().slice(0, 10)
@@ -142,6 +142,51 @@ export function upcoming(d: Data, days = 30): Upcoming[] {
     if (n && n.date <= e) out.push({ date: n.date, title: l.name, amount: n.amount + (n.last ? l.principal ?? 0 : 0), kind: 'interest', refId: l.id, paid: false, sub: n.last ? 'Vade: anapara + faiz' : `Faiz ödemesi ${n.index + 1}/${n.total}` })
   })
   return out.sort((a, b) => a.date.localeCompare(b.date))
+}
+
+export interface MonthDue { date: string; title: string; amount: number; kind: Upcoming['kind']; refId: string; paid: boolean; scope: 'personal' | 'business' }
+/** Bu takvim ayına düşen tüm ödemeler (kart, kredi, faiz, sabit gider) ve ödenip ödenmedikleri */
+export function monthDues(d: Data, m = monthKey()): MonthDue[] {
+  const [y, mo] = m.split('-').map(Number)
+  const out: MonthDue[] = []
+  const paidCard = (id: string, kind: string) => d.payments.filter((p) => p.kind === kind && p.refId === id && p.date.startsWith(m))
+  d.cards.forEach((c) => {
+    const ps = paidCard(c.id, 'card')
+    const paid = ps.length > 0
+    if (c.balance <= 0 && !paid) return
+    out.push({ date: iso(y, mo - 1, c.dueDay), title: c.name, kind: 'card', refId: c.id, paid, scope: 'personal', amount: paid ? sum(ps.map((p) => p.amount)) : Math.min(c.monthlyPayment, c.balance) })
+  })
+  d.loans.filter((l) => !isInterestLoan(l)).forEach((l) => {
+    const paid = paidCard(l.id, 'loan').length > 0
+    if (!paid && loanRemaining(l) <= 0) return
+    out.push({ date: iso(y, mo - 1, l.dueDay), title: l.name, kind: 'loan', refId: l.id, paid, scope: 'personal', amount: l.monthlyPayment })
+  })
+  d.loans.filter(isInterestLoan).forEach((l) => {
+    const pc = interestPaidCount(d, l)
+    interestSchedule(l).forEach((x, i) => {
+      if (!x.date.startsWith(m)) return
+      const amt = (i === pc && l.nextInterest ? l.nextInterest : x.amount) + (x.last ? l.principal ?? 0 : 0)
+      out.push({ date: x.date, title: l.name, kind: 'interest', refId: l.id, paid: i < pc, scope: 'business', amount: amt })
+    })
+  })
+  d.fixed.forEach((f) => {
+    const e = d.expenses.find((x) => x.fixedId === f.id && x.date.startsWith(m))
+    out.push({ date: iso(y, mo - 1, f.day), title: f.title, kind: 'fixed', refId: f.id, paid: !!e, scope: f.scope, amount: e ? e.amount : f.amount })
+  })
+  return out.sort((a, b) => a.date.localeCompare(b.date))
+}
+
+/** Uygulamaya kaydedilen toplam ödeme (TL) */
+export function paidSoFar(d: Data) {
+  return sum(
+    d.payments
+      .filter((p) => p.kind !== 'interest')
+      .map((p) => {
+        if (p.kind !== 'person') return p.amount
+        const debt = d.people.find((x) => x.id === p.refId)
+        return debt ? p.amount * rateOf(d, debt.currency) : 0
+      }),
+  )
 }
 
 export const daysUntil = (date: string) => Math.round((new Date(date + 'T00:00').getTime() - new Date(today() + 'T00:00').getTime()) / 864e5)

@@ -129,7 +129,7 @@ export function Ring({ value, size = 168, children }: { value: number; size?: nu
           </linearGradient>
         </defs>
         <circle cx={size / 2} cy={size / 2} r={r} stroke="#ffffff12" strokeWidth="12" fill="none" />
-        <circle
+        {v > 0.002 && <circle
           cx={size / 2}
           cy={size / 2}
           r={r}
@@ -139,7 +139,7 @@ export function Ring({ value, size = 168, children }: { value: number; size?: nu
           strokeLinecap="round"
           strokeDasharray={`${c * v} ${c}`}
           style={{ transition: 'stroke-dasharray 1s ease' }}
-        />
+        />}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">{children}</div>
     </div>
