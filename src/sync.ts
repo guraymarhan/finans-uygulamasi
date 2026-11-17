@@ -198,5 +198,19 @@ export function startSync() {
   })
   document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && syncNow())
   window.addEventListener('online', () => syncNow())
+  // Oturum dolmak üzereyse ya da dolduysa ilk dokunuşta sessizce yenile
+  // (iPhone ana ekran uygulamasında pencere açmak sorun çıkarabildiği için orada banner kullanılır)
+  const iosApp = (navigator as Navigator & { standalone?: boolean }).standalone === true
+  let lastTry = 0
+  document.addEventListener(
+    'pointerdown',
+    () => {
+      if (iosApp || !saved.on || Date.now() - lastTry < 120_000) return
+      if ((saved.exp ?? 0) - Date.now() > 10 * 60_000) return
+      lastTry = Date.now()
+      connect()
+    },
+    { capture: true },
+  )
   syncNow()
 }
