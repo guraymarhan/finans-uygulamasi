@@ -85,10 +85,15 @@ export function totals(d: Data) {
   const loans = sum(d.loans.map(loanRemaining))
   const people = sum(d.people.map((p) => personRemaining(d, p) * rateOf(d, p.currency)))
   const accounts = sum((d.accounts ?? []).map((a) => Math.max(0, -a.balance)))
+  // Bu aya (ve geçmiş aylara) ait ödenmemiş sabit giderler ve ödenecek giderler; gelecek aylar eklenmez
+  const m = monthKey()
+  const bills =
+    sum(d.fixed.filter((f) => !d.expenses.some((x) => x.fixedId === f.id && x.date.startsWith(m))).map((f) => f.amount)) +
+    sum(d.expenses.filter((x) => x.pending && x.date.slice(0, 7) <= m).map((x) => x.amount))
   const monthly =
     sum(d.cards.filter((c) => c.balance > 0).map((c) => Math.min(c.balance, c.monthlyPayment > 0 ? c.monthlyPayment : c.periodSpend ?? 0))) +
     sum(d.loans.filter((l) => !isInterestLoan(l) && loanRemaining(l) > 0).map((l) => l.monthlyPayment))
-  return { cards, loans, people, accounts, total: cards + loans + people + accounts, monthly }
+  return { cards, loans, people, accounts, bills, total: cards + loans + people + accounts + bills, monthly }
 }
 
 /** Ardışık ödeme yapılan ay sayısı */
