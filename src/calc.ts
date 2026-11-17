@@ -1,4 +1,4 @@
-import type { Currency, Data, Loan, PersonDebt } from './types'
+import type { Card, Currency, Data, Loan, PersonDebt } from './types'
 
 export const uid = () => crypto.randomUUID()
 export const today = () => new Date().toISOString().slice(0, 10)
@@ -17,6 +17,8 @@ export const dateLabel = (d: string) => `${+d.slice(8, 10)} ${MONTHS[+d.slice(5,
 export const rateOf = (d: Data, c: Currency) => (c === 'USD' ? d.rates.usd : c === 'GAU' ? d.rates.gold : 1)
 export const personPaid = (d: Data, p: PersonDebt) => sum(d.payments.filter((x) => x.kind === 'person' && x.refId === p.id).map((x) => x.amount))
 export const personRemaining = (d: Data, p: PersonDebt) => Math.max(0, p.amount - personPaid(d, p))
+/** Kartın bu dönem ödenecek tutarı: girilmişse aylık ödeme, yoksa dönem içi tutar, o da yoksa toplam borç */
+export const cardDue = (c: Card) => Math.min(c.balance, c.monthlyPayment > 0 ? c.monthlyPayment : (c.periodSpend ?? 0) > 0 ? c.periodSpend! : c.balance)
 export const isInterestLoan = (l: Loan) => l.kind === 'interest'
 export const loanRemaining = (l: Loan) =>
   isInterestLoan(l) ? Math.max(0, l.principal ?? 0) : Math.max(0, l.totalInstallments - l.paidInstallments) * l.monthlyPayment
@@ -77,7 +79,7 @@ export function totals(d: Data) {
   const people = sum(d.people.map((p) => personRemaining(d, p) * rateOf(d, p.currency)))
   const accounts = sum((d.accounts ?? []).map((a) => Math.max(0, -a.balance)))
   const monthly =
-    sum(d.cards.filter((c) => c.balance > 0).map((c) => Math.min(c.monthlyPayment, c.balance))) +
+    sum(d.cards.filter((c) => c.balance > 0).map((c) => Math.min(c.balance, c.monthlyPayment > 0 ? c.monthlyPayment : c.periodSpend ?? 0))) +
     sum(d.loans.filter((l) => !isInterestLoan(l) && loanRemaining(l) > 0).map((l) => l.monthlyPayment))
   return { cards, loans, people, accounts, total: cards + loans + people + accounts, monthly }
 }
@@ -133,7 +135,7 @@ export function upcoming(d: Data, days = 30): Upcoming[] {
       if (date < today() && paid) return
       out.push({ date, title, amount, kind, refId, paid, sub })
     }
-    d.cards.filter((c) => c.balance > 0).forEach((c) => push('card', c.id, c.dueDay, c.name, Math.min(c.monthlyPayment, c.balance), 'Kart son ödeme'))
+    d.cards.filter((c) => c.balance > 0).forEach((c) => push('card', c.id, c.dueDay, c.name, cardDue(c), 'Kart son ödeme'))
     d.loans.filter((l) => !isInterestLoan(l) && loanRemaining(l) > 0).forEach((l) => push('loan', l.id, l.dueDay, l.name, l.monthlyPayment, `Kredi taksiti ${l.paidInstallments + 1}/${l.totalInstallments}`))
     d.fixed.forEach((f) => push('fixed', f.id, f.day, f.title, f.amount, f.scope === 'business' ? 'İş yeri sabit gideri' : 'Sabit gider'))
   }
@@ -154,7 +156,7 @@ export function monthDues(d: Data, m = monthKey()): MonthDue[] {
     const ps = paidCard(c.id, 'card')
     const paid = ps.length > 0
     if (c.balance <= 0 && !paid) return
-    out.push({ date: iso(y, mo - 1, c.dueDay), title: c.name, kind: 'card', refId: c.id, paid, scope: 'personal', amount: paid ? sum(ps.map((p) => p.amount)) : Math.min(c.monthlyPayment, c.balance) })
+    out.push({ date: iso(y, mo - 1, c.dueDay), title: c.name, kind: 'card', refId: c.id, paid, scope: 'personal', amount: paid ? sum(ps.map((p) => p.amount)) : cardDue(c) })
   })
   d.loans.filter((l) => !isInterestLoan(l)).forEach((l) => {
     const paid = paidCard(l.id, 'loan').length > 0
