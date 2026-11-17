@@ -104,7 +104,7 @@ export function addMonths(m: number, from = new Date()) {
 }
 export const monthYearLabel = (d: Date) => `${MONTHS[d.getMonth()]} ${d.getFullYear()}`
 
-export interface Upcoming { date: string; title: string; amount: number; kind: 'card' | 'loan' | 'fixed' | 'interest'; refId: string; paid: boolean; sub: string }
+export interface Upcoming { date: string; title: string; amount: number; kind: 'card' | 'loan' | 'fixed' | 'interest' | 'expense'; refId: string; paid: boolean; sub: string }
 
 const iso = (y: number, m: number, day: number) => {
   const last = new Date(y, m + 1, 0).getDate()
@@ -139,6 +139,9 @@ export function upcoming(d: Data, days = 30): Upcoming[] {
     d.loans.filter((l) => !isInterestLoan(l) && loanRemaining(l) > 0).forEach((l) => push('loan', l.id, l.dueDay, l.name, l.monthlyPayment, `Kredi taksiti ${l.paidInstallments + 1}/${l.totalInstallments}`))
     d.fixed.forEach((f) => push('fixed', f.id, f.day, f.title, f.amount, f.scope === 'business' ? 'İş yeri sabit gideri' : 'Sabit gider'))
   }
+  d.expenses
+    .filter((x) => x.pending && x.date <= e)
+    .forEach((x) => out.push({ date: x.date, title: x.title, amount: x.amount, kind: 'expense', refId: x.id, paid: false, sub: x.scope === 'business' ? 'İş yeri gideri' : 'Gider' }))
   d.loans.filter(isInterestLoan).forEach((l) => {
     const n = nextInterest(d, l)
     if (n && n.date <= e) out.push({ date: n.date, title: l.name, amount: n.amount + (n.last ? l.principal ?? 0 : 0), kind: 'interest', refId: l.id, paid: false, sub: n.last ? 'Vade: anapara + faiz' : `Faiz ödemesi ${n.index + 1}/${n.total}` })
@@ -171,6 +174,10 @@ export function monthDues(d: Data, m = monthKey()): MonthDue[] {
       out.push({ date: x.date, title: l.name, kind: 'interest', refId: l.id, paid: i < pc, scope: 'business', amount: amt })
     })
   })
+  // fixed'e bağlı olmayan tek seferlik giderler (ödendi ya da ödenecek)
+  d.expenses
+    .filter((x) => !x.fixedId && x.date.startsWith(m))
+    .forEach((x) => out.push({ date: x.date, title: x.title, kind: 'expense', refId: x.id, paid: !x.pending, scope: x.scope, amount: x.amount }))
   d.fixed.forEach((f) => {
     const e = d.expenses.find((x) => x.fixedId === f.id && x.date.startsWith(m))
     out.push({ date: iso(y, mo - 1, f.day), title: f.title, kind: 'fixed', refId: f.id, paid: !!e, scope: f.scope, amount: e ? e.amount : f.amount })

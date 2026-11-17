@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { update, useData } from '../store'
 import { dateLabel, monthKey, monthLabel, tl, today, uid } from '../calc'
-import { deleteExpense, payFixed, saveExpense } from '../actions'
+import { deleteExpense, payExpense, payFixed, saveExpense } from '../actions'
 import { AddBtn, Empty, Form, Section, Segmented, Sheet, toDay, toNum } from '../ui'
 import type { Expense, FixedExpense, Scope } from '../types'
 
@@ -48,7 +48,7 @@ export function Expenses() {
                     {paid ? (
                       <span className="text-xs text-mint">Bu ay ödendi ✓</span>
                     ) : (
-                      <button onClick={() => payFixed(f.id)} className="text-xs font-medium text-lilac">Ödendi işaretle</button>
+                      <button onClick={() => payFixed(f.id)} className="mt-0.5 rounded-full bg-lilac/15 px-3 py-0.5 text-xs font-medium text-lilac">Öde</button>
                     )}
                   </div>
                 </div>
@@ -78,17 +78,24 @@ export function Expenses() {
           {list.length === 0 && <div className="p-4 text-center text-sm text-mute">Bu ay gider yok.</div>}
           <div className="divide-y divide-line">
             {list.map((e) => (
-              <button key={e.id} onClick={() => setEditE(e)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
-                <div className="min-w-0 flex-1">
+              <div key={e.id} className="flex w-full items-center gap-3 px-4 py-3 text-left">
+                <button onClick={() => setEditE(e)} className="min-w-0 flex-1 text-left">
                   <div className="truncate text-sm">{e.title}</div>
                   <div className="text-xs text-mute">
                     {dateLabel(e.date)} · {e.category}
                     {e.cardId && ` · 💳 ${cardName(e.cardId) ?? ''}`}
                     {(e.installments ?? 1) > 1 && ` · ${e.installments} taksit`}
                   </div>
+                </button>
+                <div className="text-right">
+                  <div className="tnum text-sm font-semibold">{tl(e.amount)}</div>
+                  {e.pending ? (
+                    <button onClick={() => payExpense(e.id)} className="mt-0.5 rounded-full bg-lilac/15 px-3 py-0.5 text-xs font-medium text-lilac">Öde</button>
+                  ) : (
+                    <span className="text-xs text-mint">Ödendi ✓</span>
+                  )}
                 </div>
-                <div className="tnum text-sm font-semibold">{tl(e.amount)}</div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -101,13 +108,15 @@ export function Expenses() {
               { key: 'title', label: 'Açıklama', required: true },
               { key: 'amount', label: 'Tutar (₺)', type: 'number', required: true, half: true },
               { key: 'category', label: 'Kategori', type: 'select', options: catOpts, half: true },
-              { key: 'cardId', label: 'Nasıl ödendi?', type: 'select', options: cardOpts, hint: 'Kart seçersen tutar o kartın borcuna da eklenir.' },
+              { key: 'status', label: 'Durum', type: 'select', options: [{ value: 'paid', label: 'Ödendi' }, { value: 'pending', label: 'Ödenecek (tarihte öde)' }], hint: 'Ödenecek seçersen ana sayfada bu ayın ödemelerine ve takvime düşer, Öde ile kapatırsın.' },
+              { key: 'cardId', label: 'Nasıl ödendi / ödenecek?', type: 'select', options: cardOpts, hint: 'Kart seçersen tutar o kartın borcuna da eklenir.' },
               { key: 'installments', label: 'Taksit (kartla)', type: 'number', half: true },
               { key: 'date', label: 'Tarih', type: 'date', half: true },
             ]}
-            initial={editE}
+            initial={{ ...editE, status: editE.pending ? 'pending' : 'paid' }}
             onSubmit={(v) => {
               saveExpense({
+                pending: v.status === 'pending' || undefined,
                 id: editE.id,
                 title: v.title,
                 amount: toNum(v.amount),
