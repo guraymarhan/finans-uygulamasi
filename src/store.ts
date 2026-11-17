@@ -10,6 +10,7 @@ export const emptyData = (): Data => ({
   version: 1,
   cards: [],
   loans: [],
+  accounts: [],
   people: [],
   payments: [],
   fixed: [],
@@ -28,7 +29,7 @@ const emit = () => subs.forEach((f) => f())
 function recompute(d: Data) {
   const t = totals(d)
   d.peak = Math.max(d.peak, t.total)
-  if (t.total === 0 && d.cards.length + d.loans.length + d.people.length === 0) return
+  if (t.total === 0 && d.cards.length + d.loans.length + d.people.length + d.accounts.length === 0) return
   const m = monthKey()
   const snap = { month: m, total: t.total, cards: t.cards, loans: t.loans, people: t.people }
   const i = d.snapshots.findIndex((s) => s.month === m)
@@ -59,7 +60,7 @@ export function replaceAll(d: Data) {
 export async function load() {
   try {
     const d = (await get(KEY)) ?? JSON.parse(localStorage.getItem(KEY) || 'null')
-    if (d) data = { ...emptyData(), ...d, settings: { ...emptyData().settings, ...d.settings } }
+    if (d) data = { ...emptyData(), ...d, accounts: d.accounts ?? [], settings: { ...emptyData().settings, ...d.settings } }
   } catch {
     /* ilk açılış */
   }

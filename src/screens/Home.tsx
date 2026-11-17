@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useData } from '../store'
-import { dateLabel, monthKey, monthYearLabel, projection, streak, tl, totals, upcoming } from '../calc'
+import { dateLabel, monthKey, monthYearLabel, payoff, streak, tl, totals, upcoming } from '../calc'
 import { Bar, Ring, Section, Segmented } from '../ui'
 import type { Scope } from '../types'
 import type { Tab } from '../App'
@@ -18,7 +18,7 @@ export function Home({ go }: { go: (t: Tab) => void }) {
     <div>
       <Segmented value={scope} onChange={pick} options={[{ value: 'personal', label: 'Kişisel' }, { value: 'business', label: 'İş Yeri' }]} />
       {scope === 'personal' ? <Personal go={go} /> : <Business go={go} />}
-      {d.cards.length + d.loans.length + d.people.length === 0 && scope === 'personal' && (
+      {d.cards.length + d.loans.length + d.people.length + d.accounts.length === 0 && scope === 'personal' && (
         <div className="glass rise mt-6 p-5 text-sm leading-relaxed text-mute">
           <div className="mb-1 text-base font-semibold text-white">Hoş geldin 👋</div>
           Önce <b className="text-white">Borçlar</b> sekmesinden kartlarını, kredilerini ve kişisel borçlarını ekle. Her ay toplam borcun otomatik kaydedilir, ilerlemen burada büyür.
@@ -34,7 +34,7 @@ function Personal({ go }: { go: (t: Tab) => void }) {
   const progress = d.peak > 0 ? (d.peak - t.total) / d.peak : 0
   const s = streak(d)
   const perMonth = t.monthly + d.settings.personMonthly + d.settings.extraMonthly
-  const proj = projection(t.total, perMonth)
+  const proj = payoff(d, perMonth)
   const prev = d.snapshots.filter((x) => x.month < monthKey()).at(-1)
   const diff = prev ? prev.total - t.total : 0
   const next = upcoming(d, 30).filter((u) => !u.paid && u.kind !== 'fixed').slice(0, 3)
@@ -69,6 +69,7 @@ function Personal({ go }: { go: (t: Tab) => void }) {
             ['Kredi kartları', t.cards, '💳'],
             ['Krediler', t.loans, '🏦'],
             ['Kişisel borçlar', t.people, '🤝'],
+            ...(d.accounts.length ? [['Ek hesap / avans', t.accounts, '🏧']] : []),
           ].map(([label, v, e]) => (
             <button key={label as string} onClick={() => go('debts')} className="flex w-full items-center gap-3 px-4 py-3.5 text-left">
               <span className="text-xl">{e}</span>
