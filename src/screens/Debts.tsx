@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { update, useData } from '../store'
-import { addMonths, cardInstallments, dateLabel, fmtUnit, interestPaidCount, interestSchedule, isInterestLoan, loanRemaining, nextInterest, monthYearLabel, num, personPaid, personRemaining, rateOf, tl, today, uid } from '../calc'
+import { addMonths, cardDue, cardInstallments, dateLabel, fmtUnit, interestPaidCount, interestSchedule, isInterestLoan, loanRemaining, nextInterest, monthYearLabel, num, personPaid, personRemaining, rateOf, tl, today, uid } from '../calc'
 import { deletePayment, setPeriodSpend, payCard, payInterest, payLoan, payPerson, saveExpense, setAccountBalance } from '../actions'
 import { AddBtn, Bar, Empty, Form, Section, Segmented, Sheet, toDay, toNum } from '../ui'
 import type { Account, Card, Currency, Loan, PersonDebt, Scope } from '../types'
@@ -44,7 +44,7 @@ export function CardPaySheet({ cardId, open, onClose }: { cardId: string; open: 
           { key: 'amount', label: 'Ödenen tutar (₺)', type: 'number', required: true, hint: `Güncel borç ${tl(c.balance)}` },
           { key: 'date', label: 'Tarih', type: 'date' },
         ]}
-        initial={{ amount: Math.min(c.monthlyPayment, c.balance) || '', date: today() }}
+        initial={{ amount: cardDue(c) || '', date: today() }}
         submitLabel="Ödemeyi kaydet"
         onSubmit={(v) => {
           payCard(c.id, toNum(v.amount), v.date || today())
@@ -187,7 +187,7 @@ function Cards() {
                 </div>
               )}
               <div className="flex items-center justify-between border-t border-line px-4 py-2.5 text-sm">
-                <span className="text-mute">Aylık {tl(c.monthlyPayment)}</span>
+                <span className="text-mute">Bu dönem {tl(cardDue(c))}</span>
                 <span className="flex gap-4 whitespace-nowrap">
                   <button onClick={() => setSpend(c.id)} className="font-medium text-lilac">+ Harcama</button>
                   {c.balance > 0 && (
@@ -209,7 +209,7 @@ function Cards() {
             fields={[
               { key: 'name', label: 'Kart adı', required: true },
               { key: 'balance', label: 'Toplam borç (₺)', type: 'number', hint: 'Ekstre + dönem içi harcamalar dahil güncel borç' },
-              { key: 'monthlyPayment', label: 'Aylık ödeme (₺)', type: 'number', half: true },
+              { key: 'monthlyPayment', label: 'Sabit aylık ödeme (₺)', type: 'number', half: true, hint: 'Boş bırakırsan dönem içi tutar ödenecek tutar sayılır.' },
               { key: 'limit', label: 'Limit (₺)', type: 'number', half: true },
               { key: 'statementDay', label: 'Hesap kesim günü', type: 'day', half: true },
               { key: 'dueDay', label: 'Son ödeme günü', type: 'day', half: true },
