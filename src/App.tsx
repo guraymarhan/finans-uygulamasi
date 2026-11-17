@@ -44,9 +44,6 @@ export default function App() {
       <header className="mb-4 flex items-center justify-between">
         <h1 className={`text-2xl font-bold ${tab === 'home' ? 'grad-text' : ''}`}>{TITLES[tab]}</h1>
         <div className="flex items-center gap-2">
-        {sync.status === 'auth' && (
-          <button onClick={connect} className="rounded-full bg-sun/15 px-3 py-1.5 text-xs font-semibold text-sun">☁️ Eşitle</button>
-        )}
         <button onClick={() => setTab(tab === 'settings' ? 'home' : 'settings')} className="rounded-full bg-white/6 p-2 text-mute" aria-label="Ayarlar">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
             <circle cx="12" cy="12" r="3" />
@@ -55,6 +52,17 @@ export default function App() {
         </button>
         </div>
       </header>
+
+      {sync.status === 'auth' && (
+        <button onClick={connect} className="mb-4 flex w-full items-center gap-3 rounded-2xl border border-sun/40 bg-sun/15 px-4 py-3 text-left text-sm">
+          <span className="text-xl">☁️</span>
+          <span className="flex-1">
+            <b className="block text-sun">Drive eşitlemesi durdu</b>
+            <span className="text-xs text-mute">Google oturumu doldu. Devam etmek için dokun.</span>
+          </span>
+          <span className="text-sun">→</span>
+        </button>
+      )}
 
       <main key={tab}>
         {tab === 'home' && <Home go={setTab} />}
