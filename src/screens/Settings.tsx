@@ -3,6 +3,7 @@ import { refreshRates, replaceAll, update, useData } from '../store'
 import { num, tl, today } from '../calc'
 import { Form, Section, Sheet, toNum } from '../ui'
 import type { Data } from '../types'
+import { CLIENT_ID, connect, disconnect, syncNow, useSync } from '../sync'
 
 export function Settings() {
   const d = useData()
@@ -89,9 +90,11 @@ export function Settings() {
         </div>
       </Section>
 
+      <DriveSync />
+
       <Section title="Yedek">
         <div className="glass p-4 text-sm text-mute">
-          Verilerin yalnızca bu telefonda duruyor. Ayda bir yedek alıp iCloud Drive'a kaydetmeni öneririm.
+          Drive eşitlemesi açık olsa da ayda bir yedek dosyası alman iyi olur. Yedek al'a basınca açılan menüden Drive'a kaydedebilirsin.
           <div className="mt-3 flex gap-2">
             <button onClick={exportData} className="btn-primary flex-1 text-sm">Yedek al</button>
             <button onClick={() => file.current?.click()} className="flex-1 rounded-2xl bg-white/6 py-3 text-sm text-white">Yedeği yükle</button>
@@ -137,5 +140,47 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="text-mute">{label}</span>
       <span className="tnum font-semibold">{value}</span>
     </div>
+  )
+}
+
+function DriveSync() {
+  const s = useSync()
+  const btn = 'flex-1 rounded-2xl bg-white/6 py-3 text-sm text-white'
+  let line = ''
+  if (s.status === 'syncing') line = 'Eşitleniyor…'
+  else if (s.status === 'auth') line = 'Google oturumunun süresi doldu. Devam etmek için bir kez dokun.'
+  else if (s.status === 'error') line = s.err || 'Eşitlenemedi.'
+  else if (s.last) line = `Son eşitleme: ${new Date(s.last).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+  return (
+    <Section title="Google Drive eşitleme">
+      <div className="glass p-4 text-sm text-mute">
+        {!CLIENT_ID ? (
+          'Google bağlantısı henüz ayarlanmadı.'
+        ) : !s.on ? (
+          <>
+            Telefon ve bilgisayar aynı verileri görsün. Veriler Google Drive'ında, yalnızca bu uygulamanın görebildiği gizli bir klasörde durur.
+            <div className="mt-2 text-xs">Önce telefonda bağlan. Diğer cihazda bağlandığında Drive'daki veriler o cihaza gelir.</div>
+            <button onClick={connect} className="btn-primary mt-3 w-full text-sm">Google ile bağlan</button>
+            {s.err && <div className="mt-2 text-xs text-rose">{s.err}</div>}
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2">
+              <span className={`h-2 w-2 rounded-full ${s.status === 'idle' ? 'bg-mint' : s.status === 'syncing' ? 'bg-sun' : 'bg-rose'}`} />
+              <span className="text-white">Bağlı</span>
+            </div>
+            <div className="mt-1 text-xs">{line}</div>
+            <div className="mt-3 flex gap-2">
+              {s.status === 'auth' ? (
+                <button onClick={connect} className="btn-primary flex-1 text-sm">Yeniden bağlan</button>
+              ) : (
+                <button onClick={() => syncNow()} className={btn}>Şimdi eşitle</button>
+              )}
+              <button onClick={() => confirm('Drive bağlantısı kesilsin mi? Bu cihazdaki veriler silinmez.') && disconnect()} className={btn}>Bağlantıyı kes</button>
+            </div>
+          </>
+        )}
+      </div>
+    </Section>
   )
 }

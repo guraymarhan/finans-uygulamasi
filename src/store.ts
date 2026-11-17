@@ -38,10 +38,20 @@ function recompute(d: Data) {
   d.snapshots.sort((a, b) => a.month.localeCompare(b.month))
 }
 
-function commit(next: Data) {
+const sig = (d: Data) => JSON.stringify([d.cards, d.loans, d.accounts, d.people, d.payments, d.fixed, d.expenses, d.settings])
+let lastSig = ''
+const changeSubs = new Set<() => void>()
+export const onUserChange = (f: () => void) => (changeSubs.add(f), () => changeSubs.delete(f))
+
+function commit(next: Data, keepTime = false) {
+  const s = sig(next)
+  const changed = s !== lastSig
+  lastSig = s
+  if (changed && !keepTime && loaded) next.savedAt = Date.now()
   data = next
   set(KEY, next).catch(() => localStorage.setItem(KEY, JSON.stringify(next)))
   emit()
+  if (changed && !keepTime && loaded) changeSubs.forEach((f) => f())
 }
 
 export function update(fn: (d: Data) => void) {
@@ -51,10 +61,10 @@ export function update(fn: (d: Data) => void) {
   commit(next)
 }
 
-export function replaceAll(d: Data) {
-  const next = { ...emptyData(), ...d }
+export function replaceAll(d: Data, keepTime = false) {
+  const next = { ...emptyData(), ...d, accounts: d.accounts ?? [], settings: { ...emptyData().settings, ...d.settings } }
   recompute(next)
-  commit(next)
+  commit(next, keepTime)
 }
 
 export async function load() {
@@ -64,6 +74,7 @@ export async function load() {
   } catch {
     /* ilk açılış */
   }
+  lastSig = sig(data)
   loaded = true
   navigator.storage?.persist?.().catch(() => {})
   update(() => {}) // bu ayın fotoğrafını güncelle
