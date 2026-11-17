@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { update, useData } from '../store'
 import { dateLabel, monthKey, monthLabel, tl, today, uid } from '../calc'
-import { deleteExpense, payExpense, payFixed, saveExpense } from '../actions'
+import { deleteExpense, saveExpense, srcAcc, srcCard } from '../actions'
+import { useSourceOptions } from '../PaySheet'
+import { QuickPay } from './Upcoming'
 import { AddBtn, Empty, Form, Section, Segmented, Sheet, toDay, toNum } from '../ui'
 import type { Expense, FixedExpense, Scope } from '../types'
 
@@ -16,11 +18,13 @@ export function Expenses() {
   const [month, setMonth] = useState(monthKey())
   const [editE, setEditE] = useState<Partial<Expense> | null>(null)
   const [editF, setEditF] = useState<Partial<FixedExpense> | null>(null)
+  const [payQ, setPayQ] = useState<{ kind: 'fixed' | 'expense'; refId: string; amount: number; title: string } | null>(null)
   const months = [...new Set([monthKey(), ...d.expenses.map((e) => e.date.slice(0, 7))])].sort().reverse()
   const fixed = d.fixed.filter((f) => f.scope === scope)
   const list = d.expenses.filter((e) => e.scope === scope && e.date.startsWith(month)).sort((a, b) => b.date.localeCompare(a.date))
   const total = list.reduce((a, e) => a + e.amount, 0)
   const cardOpts = [{ value: '', label: 'Nakit / banka' }, ...d.cards.map((c) => ({ value: c.id, label: `💳 ${c.name}` }))]
+  const srcOpts = useSourceOptions(true)
   const catOpts = CATEGORIES[scope].map((c) => ({ value: c, label: c }))
   const cardName = (id?: string) => d.cards.find((c) => c.id === id)?.name
 
@@ -48,7 +52,7 @@ export function Expenses() {
                     {paid ? (
                       <span className="text-xs text-mint">Bu ay ödendi ✓</span>
                     ) : (
-                      <button onClick={() => payFixed(f.id)} className="mt-0.5 rounded-full bg-lilac/15 px-3 py-0.5 text-xs font-medium text-lilac">Öde</button>
+                      <button onClick={() => setPayQ({ kind: 'fixed', refId: f.id, amount: f.amount, title: f.title })} className="mt-0.5 rounded-full bg-lilac/15 px-3 py-0.5 text-xs font-medium text-lilac">Öde</button>
                     )}
                   </div>
                 </div>
@@ -90,7 +94,7 @@ export function Expenses() {
                 <div className="text-right">
                   <div className="tnum text-sm font-semibold">{tl(e.amount)}</div>
                   {e.pending ? (
-                    <button onClick={() => payExpense(e.id)} className="mt-0.5 rounded-full bg-lilac/15 px-3 py-0.5 text-xs font-medium text-lilac">Öde</button>
+                    <button onClick={() => setPayQ({ kind: 'expense', refId: e.id, amount: e.amount, title: e.title })} className="mt-0.5 rounded-full bg-lilac/15 px-3 py-0.5 text-xs font-medium text-lilac">Öde</button>
                   ) : (
                     <span className="text-xs text-mint">Ödendi ✓</span>
                   )}
@@ -101,6 +105,8 @@ export function Expenses() {
         </div>
       </Section>
 
+      {payQ && <QuickPay {...payQ} onClose={() => setPayQ(null)} />}
+
       <Sheet open={!!editE} onClose={() => setEditE(null)} title={editE?.id ? 'Gideri düzenle' : 'Yeni gider'}>
         {editE && (
           <Form
@@ -109,11 +115,11 @@ export function Expenses() {
               { key: 'amount', label: 'Tutar (₺)', type: 'number', required: true, half: true },
               { key: 'category', label: 'Kategori', type: 'select', options: catOpts, half: true },
               { key: 'status', label: 'Durum', type: 'select', options: [{ value: 'paid', label: 'Ödendi' }, { value: 'pending', label: 'Ödenecek (tarihte öde)' }], hint: 'Ödenecek seçersen ana sayfada bu ayın ödemelerine ve takvime düşer, Öde ile kapatırsın.' },
-              { key: 'cardId', label: 'Nasıl ödendi / ödenecek?', type: 'select', options: cardOpts, hint: 'Kart seçersen tutar o kartın borcuna da eklenir.' },
+              { key: 'source', label: 'Nereden ödendi / ödenecek?', type: 'select', options: srcOpts, hint: 'Kart seçersen tutar kartın borcuna eklenir, hesap seçersen bakiyesinden düşer.' },
               { key: 'installments', label: 'Taksit (kartla)', type: 'number', half: true },
               { key: 'date', label: 'Tarih', type: 'date', half: true },
             ]}
-            initial={{ ...editE, status: editE.pending ? 'pending' : 'paid' }}
+            initial={{ ...editE, status: editE.pending ? 'pending' : 'paid', source: editE.cardId ? `card:${editE.cardId}` : editE.accountId ? `acc:${editE.accountId}` : '' }}
             onSubmit={(v) => {
               saveExpense({
                 pending: v.status === 'pending' || undefined,
@@ -121,11 +127,12 @@ export function Expenses() {
                 title: v.title,
                 amount: toNum(v.amount),
                 category: v.category,
-                cardId: v.cardId || undefined,
+                cardId: srcCard(v.source),
+                accountId: srcAcc(v.source),
                 date: v.date || today(),
                 scope: editE.scope ?? scope,
                 fixedId: editE.fixedId,
-                installments: v.cardId ? Math.max(1, Math.round(toNum(v.installments)) || 1) : undefined,
+                installments: srcCard(v.source) ? Math.max(1, Math.round(toNum(v.installments)) || 1) : undefined,
               })
               setEditE(null)
             }}

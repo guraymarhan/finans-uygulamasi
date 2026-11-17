@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { update, useData } from '../store'
 import { addMonths, cardDue, cardInstallments, dateLabel, fmtUnit, interestPaidCount, interestSchedule, isInterestLoan, loanRemaining, nextInterest, monthYearLabel, num, personPaid, personRemaining, rateOf, tl, today, uid } from '../calc'
-import { deletePayment, setPeriodSpend, payCard, payInterest, payLoan, payPerson, saveExpense, setAccountBalance } from '../actions'
+import { deletePayment, setPeriodSpend, payCard, payInterest, payPerson, saveExpense, setAccountBalance } from '../actions'
 import { AddBtn, Bar, Empty, Form, Section, Segmented, Sheet, toDay, toNum } from '../ui'
 import type { Account, Card, Currency, Loan, PersonDebt, Scope } from '../types'
 import { CATEGORIES } from './Expenses'
+import { QuickPay } from './Upcoming'
+import { useSourceOptions } from '../PaySheet'
 
 type Sub = 'cards' | 'accounts' | 'loans' | 'people'
 
@@ -35,19 +37,21 @@ export function Debts() {
 export function CardPaySheet({ cardId, open, onClose }: { cardId: string; open: boolean; onClose: () => void }) {
   const d = useData()
   const c = d.cards.find((x) => x.id === cardId)
+  const src = useSourceOptions(false)
   if (!c) return null
   return (
     <Sheet open={open} onClose={onClose} title={`${c.name} ödemesi`}>
       <Form
         key={String(open)}
         fields={[
-          { key: 'amount', label: 'Ödenen tutar (₺)', type: 'number', required: true, hint: `Güncel borç ${tl(c.balance)}` },
-          { key: 'date', label: 'Tarih', type: 'date' },
+          { key: 'source', label: 'Nereden ödedin?', type: 'select', options: src },
+          { key: 'amount', label: 'Ödenen tutar (₺)', type: 'number', required: true, half: true },
+          { key: 'date', label: 'Tarih', type: 'date', half: true, hint: `Güncel borç ${tl(c.balance)}` },
         ]}
-        initial={{ amount: cardDue(c) || '', date: today() }}
+        initial={{ source: '', amount: cardDue(c) || '', date: today() }}
         submitLabel="Ödemeyi kaydet"
         onSubmit={(v) => {
-          payCard(c.id, toNum(v.amount), v.date || today())
+          payCard(c.id, toNum(v.amount), v.date || today(), v.source)
           onClose()
         }}
       />
@@ -276,6 +280,7 @@ function Loans() {
 }
 
 function InstallmentLoanCard({ l, onEdit }: { l: Loan; onEdit: () => void }) {
+  const [paying, setPaying] = useState(false)
   const left = l.totalInstallments - l.paidInstallments
   const done = left <= 0
   return (
@@ -298,10 +303,11 @@ function InstallmentLoanCard({ l, onEdit }: { l: Loan; onEdit: () => void }) {
       </div>
       <Bar value={l.paidInstallments / (l.totalInstallments || 1)} className="mt-2" />
       {!done && (
-        <button onClick={() => payLoan(l.id)} className="mt-3 w-full rounded-xl bg-white/6 py-2.5 text-sm font-medium text-mint">
+        <button onClick={() => setPaying(true)} className="mt-3 w-full rounded-xl bg-white/6 py-2.5 text-sm font-medium text-mint">
           Bu ayın taksitini ödedim
         </button>
       )}
+      {paying && <QuickPay kind="loan" refId={l.id} amount={l.monthlyPayment} title={l.name} onClose={() => setPaying(false)} />}
     </div>
   )
 }
@@ -377,6 +383,7 @@ function InterestLoanCard({ l, onEdit, onPay }: { l: Loan; onEdit: () => void; o
 
 export function InterestPaySheet({ loanId, open, onClose }: { loanId: string; open: boolean; onClose: () => void }) {
   const d = useData()
+  const src = useSourceOptions(false)
   const l = d.loans.find((x) => x.id === loanId)
   if (!l) return null
   const n = nextInterest(d, l)
@@ -385,14 +392,15 @@ export function InterestPaySheet({ loanId, open, onClose }: { loanId: string; op
       <Form
         key={String(open)}
         fields={[
+          { key: 'source', label: 'Nereden ödedin?', type: 'select', options: src },
           { key: 'amount', label: 'Ödenen faiz (₺)', type: 'number', required: true, half: true },
           { key: 'principal', label: 'Anaparadan ödenen (₺)', type: 'number', half: true },
           { key: 'date', label: 'Tarih', type: 'date', hint: `Kalan anapara ${tl(l.principal ?? 0)}. Erken / kısmi anapara ödemesi yaptıysan ikinci kutuya yaz.` },
         ]}
-        initial={{ amount: n ? Math.round(n.amount) : '', principal: n?.last ? l.principal : '', date: today() }}
+        initial={{ source: '', amount: n ? Math.round(n.amount) : '', principal: n?.last ? l.principal : '', date: today() }}
         submitLabel="Ödemeyi kaydet"
         onSubmit={(v) => {
-          payInterest(l.id, toNum(v.amount), toNum(v.principal), v.date || today())
+          payInterest(l.id, toNum(v.amount), toNum(v.principal), v.date || today(), v.source)
           onClose()
         }}
       />

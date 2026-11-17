@@ -1,26 +1,40 @@
-import type { Expense } from './types'
+import type { Data, Expense } from './types'
+
+/** Ödeme kaynağı: '' nakit · 'card:<id>' kart · 'acc:<id>' banka hesabı */
+export type Source = string
+export const srcCard = (s?: Source) => (s?.startsWith('card:') ? s.slice(5) : undefined)
+export const srcAcc = (s?: Source) => (s?.startsWith('acc:') ? s.slice(4) : undefined)
+const moveAcc = (d: Data, id: string | undefined, delta: number) => {
+  const a = id && d.accounts.find((x) => x.id === id)
+  if (a) {
+    a.balance += delta
+    a.updatedAt = today()
+  }
+}
 import { celebrate, getData, update } from './store'
 import { personRemaining, today, uid, loanRemaining } from './calc'
 
-export function payCard(cardId: string, amount: number, date = today()) {
+export function payCard(cardId: string, amount: number, date = today(), source: Source = '') {
   update((d) => {
     const c = d.cards.find((x) => x.id === cardId)
     if (!c) return
     const before = c.balance
     c.balance = Math.max(0, c.balance - amount)
     if (c.periodSpend) c.periodSpend = Math.min(c.periodSpend, c.balance)
-    d.payments.push({ id: uid(), kind: 'card', refId: cardId, amount, date })
+    d.payments.push({ id: uid(), kind: 'card', refId: cardId, amount, date, accountId: srcAcc(source) })
+    moveAcc(d, srcAcc(source), -amount)
     if (before > 0 && c.balance === 0) setTimeout(() => celebrate(`${c.name} borcu sıfırlandı! 🎉`))
   })
   celebrate('Ödeme kaydedildi, bir adım daha 💪')
 }
 
-export function payLoan(loanId: string, date = today()) {
+export function payLoan(loanId: string, date = today(), source: Source = '') {
   update((d) => {
     const l = d.loans.find((x) => x.id === loanId)
     if (!l || loanRemaining(l) <= 0) return
     l.paidInstallments += 1
-    d.payments.push({ id: uid(), kind: 'loan', refId: loanId, amount: l.monthlyPayment, date })
+    d.payments.push({ id: uid(), kind: 'loan', refId: loanId, amount: l.monthlyPayment, date, accountId: srcAcc(source) })
+    moveAcc(d, srcAcc(source), -l.monthlyPayment)
     setTimeout(() => celebrate(loanRemaining(l) <= 0 ? `${l.name} kapandı! Tebrikler 🎉` : `Taksit ödendi, ${l.totalInstallments - l.paidInstallments} taksit kaldı 💪`))
   })
 }
@@ -35,15 +49,17 @@ export function payPerson(debtId: string, amount: number, date = today()) {
 }
 
 /** Faiz ödemeli kredi: dönem faizini öde; vadede anapara da kapanır. */
-export function payInterest(loanId: string, amount: number, principalPaid: number, date = today()) {
+export function payInterest(loanId: string, amount: number, principalPaid: number, date = today(), source: Source = '') {
   update((d) => {
     const l = d.loans.find((x) => x.id === loanId)
     if (!l) return
-    d.payments.push({ id: uid(), kind: 'interest', refId: loanId, amount, date })
+    d.payments.push({ id: uid(), kind: 'interest', refId: loanId, amount, date, accountId: srcAcc(source) })
+    moveAcc(d, srcAcc(source), -amount)
     l.nextInterest = undefined
     if (principalPaid > 0) {
       l.principal = Math.max(0, (l.principal ?? 0) - principalPaid)
-      d.payments.push({ id: uid(), kind: 'loan', refId: loanId, amount: principalPaid, date })
+      d.payments.push({ id: uid(), kind: 'loan', refId: loanId, amount: principalPaid, date, accountId: srcAcc(source) })
+      moveAcc(d, srcAcc(source), -principalPaid)
     }
     setTimeout(() => celebrate((l.principal ?? 0) <= 0 ? `${l.name} kapandı! Tebrikler 🎉` : 'Faiz ödemesi kaydedildi 💪'))
   })
@@ -75,6 +91,7 @@ export function deletePayment(id: string) {
   update((d) => {
     const p = d.payments.find((x) => x.id === id)
     if (!p) return
+    moveAcc(d, p.accountId, p.amount)
     if (p.kind === 'card') {
       const c = d.cards.find((x) => x.id === p.refId)
       if (c) c.balance += p.amount
@@ -92,6 +109,8 @@ export function deletePayment(id: string) {
 export function saveExpense(e: Omit<Expense, 'id'> & { id?: string }) {
   update((d) => {
     const old = e.id ? d.expenses.find((x) => x.id === e.id) : undefined
+    if (old && !old.pending) moveAcc(d, old.accountId, old.amount)
+    if (!e.pending) moveAcc(d, e.accountId, -e.amount)
     if (old?.cardId && !old.pending) {
       const c = d.cards.find((x) => x.id === old.cardId)
       if (c) c.balance -= old.amount
@@ -113,6 +132,7 @@ export function saveExpense(e: Omit<Expense, 'id'> & { id?: string }) {
 export function deleteExpense(id: string) {
   update((d) => {
     const e = d.expenses.find((x) => x.id === id)
+    if (e && !e.pending) moveAcc(d, e.accountId, e.amount)
     if (e?.cardId && !e.pending) {
       const c = d.cards.find((x) => x.id === e.cardId)
       if (c) c.balance = Math.max(0, c.balance - e.amount)
@@ -121,16 +141,17 @@ export function deleteExpense(id: string) {
   })
 }
 
-export function payExpense(id: string) {
+export function payExpense(id: string, source: Source = '', amount?: number, date?: string) {
   const e = getData().expenses.find((x) => x.id === id)
   if (!e) return
-  saveExpense({ ...e, pending: false })
-  celebrate('Ödendi olarak işaretlendi ✓')
+  const cardId = srcCard(source)
+  saveExpense({ ...e, amount: amount ?? e.amount, date: date ?? e.date, cardId, accountId: srcAcc(source), installments: cardId ? e.installments : undefined, pending: false })
+  celebrate('Ödendi ✓')
 }
 
-export function payFixed(fixedId: string, date = today()) {
+export function payFixed(fixedId: string, source: Source = '', amount?: number, date = today()) {
   const f = getData().fixed.find((x) => x.id === fixedId)
   if (!f) return
-  saveExpense({ title: f.title, amount: f.amount, category: f.category, date, cardId: f.cardId, scope: f.scope, fixedId })
-  celebrate('Ödendi olarak işaretlendi ✓')
+  saveExpense({ title: f.title, amount: amount ?? f.amount, category: f.category, date, cardId: srcCard(source), accountId: srcAcc(source), scope: f.scope, fixedId })
+  celebrate('Ödendi ✓')
 }

@@ -2,10 +2,28 @@ import { useState } from 'react'
 import { useData } from '../store'
 import { dateLabel, daysUntil, tl, upcoming, type Upcoming as U } from '../calc'
 import { payExpense, payFixed, payLoan } from '../actions'
+import { PaySheet } from '../PaySheet'
 import { Empty } from '../ui'
 import { CardPaySheet, InterestPaySheet } from './Debts'
 
 const icon = { card: '💳', loan: '🏦', fixed: '🏢', interest: '🏦', expense: '🧾' }
+
+/** Kredi taksiti, sabit gider ya da ödenecek gider için "Nereden ödedin?" */
+export function QuickPay({ kind, refId, amount, title, onClose }: { kind: 'loan' | 'fixed' | 'expense'; refId: string; amount: number; title: string; onClose: () => void }) {
+  const d = useData()
+  const cardId = kind === 'fixed' ? d.fixed.find((f) => f.id === refId)?.cardId : kind === 'expense' ? d.expenses.find((e) => e.id === refId)?.cardId : undefined
+  return (
+    <PaySheet
+      title={`${title} · öde`}
+      amount={amount}
+      allowCards={kind !== 'loan'}
+      amountEditable={kind !== 'loan'}
+      defaultSource={cardId ? `card:${cardId}` : ''}
+      onClose={onClose}
+      onPay={(src, amt, date) => (kind === 'loan' ? payLoan(refId, date, src) : kind === 'fixed' ? payFixed(refId, src, amt, date) : payExpense(refId, src, amt, date))}
+    />
+  )
+}
 
 export function UpcomingRow({ u, compact }: { u: U; compact?: boolean }) {
   const [paying, setPaying] = useState(false)
@@ -31,7 +49,7 @@ export function UpcomingRow({ u, compact }: { u: U; compact?: boolean }) {
           <span className="text-xs text-mint">Ödendi ✓</span>
         ) : (
           <button
-            onClick={() => (u.kind === 'card' || u.kind === 'interest' ? setPaying(true) : u.kind === 'loan' ? payLoan(u.refId) : u.kind === 'expense' ? payExpense(u.refId) : payFixed(u.refId))}
+            onClick={() => setPaying(true)}
             className="text-xs font-medium text-lilac"
           >
             Öde →
@@ -40,6 +58,7 @@ export function UpcomingRow({ u, compact }: { u: U; compact?: boolean }) {
       </div>
       {u.kind === 'card' && <CardPaySheet cardId={u.refId} open={paying} onClose={() => setPaying(false)} />}
       {u.kind === 'interest' && paying && <InterestPaySheet loanId={u.refId} open onClose={() => setPaying(false)} />}
+      {paying && (u.kind === 'loan' || u.kind === 'fixed' || u.kind === 'expense') && <QuickPay kind={u.kind} refId={u.refId} amount={u.amount} title={u.title} onClose={() => setPaying(false)} />}
     </div>
   )
 }
