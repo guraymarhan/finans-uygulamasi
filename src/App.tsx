@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLoaded } from './store'
 import { Confetti } from './ui'
+import { connect, useSync } from './sync'
 import { Home } from './screens/Home'
 import { Debts } from './screens/Debts'
 import { Expenses } from './screens/Expenses'
@@ -30,6 +31,7 @@ const TITLES: Record<Tab, string> = {
 export default function App() {
   const loaded = useLoaded()
   const [tab, setTab] = useState<Tab>('home')
+  const sync = useSync()
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [tab])
@@ -38,12 +40,17 @@ export default function App() {
     <div className="mx-auto min-h-screen max-w-lg px-4 pt-[calc(env(safe-area-inset-top)+14px)] pb-[calc(env(safe-area-inset-bottom)+96px)]">
       <header className="mb-4 flex items-center justify-between">
         <h1 className={`text-2xl font-bold ${tab === 'home' ? 'grad-text' : ''}`}>{TITLES[tab]}</h1>
+        <div className="flex items-center gap-2">
+        {sync.status === 'auth' && (
+          <button onClick={connect} className="rounded-full bg-sun/15 px-3 py-1.5 text-xs font-semibold text-sun">☁️ Eşitle</button>
+        )}
         <button onClick={() => setTab(tab === 'settings' ? 'home' : 'settings')} className="rounded-full bg-white/6 p-2 text-mute" aria-label="Ayarlar">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" />
           </svg>
         </button>
+        </div>
       </header>
 
       <main key={tab}>

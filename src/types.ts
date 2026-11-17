@@ -44,4 +44,5 @@ export interface Data {
   rates: Rates
   settings: Settings
   peak: number
+  savedAt?: number
 }
