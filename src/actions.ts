@@ -145,7 +145,7 @@ export function payExpense(id: string, source: Source = '', amount?: number, dat
   const e = getData().expenses.find((x) => x.id === id)
   if (!e) return
   const cardId = srcCard(source)
-  saveExpense({ ...e, amount: amount ?? e.amount, date: date ?? e.date, cardId, accountId: srcAcc(source), installments: cardId ? e.installments : undefined, pending: false })
+  saveExpense({ ...e, amount: amount ?? e.amount, date: date ?? e.date, cardId, accountId: srcAcc(source), installments: cardId ? e.installments : undefined, pending: false, settled: true })
   celebrate('Ödendi ✓')
 }
 

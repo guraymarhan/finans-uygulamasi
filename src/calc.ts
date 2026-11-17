@@ -199,7 +199,9 @@ export function monthDues(d: Data, m = monthKey()): MonthDue[] {
 
 /** Uygulamaya kaydedilen toplam ödeme (TL) */
 export function paidSoFar(d: Data) {
-  return sum(
+  // Öde ile kapatılan sabit / ödenecek giderler (kartla ödenenler borcu karta taşıdığı için sayılmaz)
+  const bills = sum(d.expenses.filter((e) => (e.fixedId || e.settled) && !e.cardId).map((e) => e.amount))
+  return bills + sum(
     d.payments
       .filter((p) => p.kind !== 'interest')
       .map((p) => {
