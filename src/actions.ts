@@ -92,16 +92,16 @@ export function deletePayment(id: string) {
 export function saveExpense(e: Omit<Expense, 'id'> & { id?: string }) {
   update((d) => {
     const old = e.id ? d.expenses.find((x) => x.id === e.id) : undefined
-    if (old?.cardId) {
+    if (old?.cardId && !old.pending) {
       const c = d.cards.find((x) => x.id === old.cardId)
       if (c) c.balance -= old.amount
     }
-    if (e.cardId) {
+    if (e.cardId && !e.pending) {
       const c = d.cards.find((x) => x.id === e.cardId)
       if (c) {
         c.balance += e.amount
         // yeni harcama dönem içine yansır (taksitliyse ilk taksit)
-        if (!old) c.periodSpend = (c.periodSpend ?? 0) + e.amount / Math.max(1, e.installments ?? 1)
+        if (!old || old.pending) c.periodSpend = (c.periodSpend ?? 0) + e.amount / Math.max(1, e.installments ?? 1)
       }
     }
     const next = { ...e, id: e.id ?? uid() } as Expense
@@ -113,12 +113,19 @@ export function saveExpense(e: Omit<Expense, 'id'> & { id?: string }) {
 export function deleteExpense(id: string) {
   update((d) => {
     const e = d.expenses.find((x) => x.id === id)
-    if (e?.cardId) {
+    if (e?.cardId && !e.pending) {
       const c = d.cards.find((x) => x.id === e.cardId)
       if (c) c.balance = Math.max(0, c.balance - e.amount)
     }
     d.expenses = d.expenses.filter((x) => x.id !== id)
   })
+}
+
+export function payExpense(id: string) {
+  const e = getData().expenses.find((x) => x.id === id)
+  if (!e) return
+  saveExpense({ ...e, pending: false })
+  celebrate('Ödendi olarak işaretlendi ✓')
 }
 
 export function payFixed(fixedId: string, date = today()) {
