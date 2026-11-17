@@ -1,14 +1,25 @@
 import { useData } from './store'
-import { tl, today } from './calc'
+import { accountRoom, tl, today } from './calc'
 import { Form, Sheet, toNum } from './ui'
 import type { Source } from './actions'
+
+/** Renkli işaret: yeşil rahat, sarı limitin yarısından azı kaldı, kırmızı %10'dan az */
+const dot = (room: number, max: number) => (max <= 0 || room <= 0 ? '🔴' : room / max < 0.1 ? '🔴' : room / max < 0.5 ? '🟡' : '🟢')
 
 export function useSourceOptions(allowCards: boolean) {
   const d = useData()
   return [
     { value: '', label: '💵 Nakit' },
-    ...d.accounts.map((a) => ({ value: `acc:${a.id}`, label: `🏧 ${a.name} (${a.balance < 0 ? '-' : ''}${tl(Math.abs(a.balance))})` })),
-    ...(allowCards ? d.cards.map((c) => ({ value: `card:${c.id}`, label: `💳 ${c.name}` })) : []),
+    ...d.accounts.map((a) => {
+      const x = accountRoom(a)
+      return { value: `acc:${a.id}`, label: `${dot(x.room, a.limit + Math.max(0, a.balance))} ${a.name} · ödenebilir ${tl(x.room)}` }
+    }),
+    ...(allowCards
+      ? d.cards.map((c) => {
+          const room = Math.max(0, c.limit - c.balance)
+          return { value: `card:${c.id}`, label: `${c.limit ? dot(room, c.limit) : '💳'} ${c.name}${c.limit ? ` · ${tl(room)} limit` : ''}` }
+        })
+      : []),
   ]
 }
 

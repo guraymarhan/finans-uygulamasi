@@ -19,6 +19,13 @@ export const personPaid = (d: Data, p: PersonDebt) => sum(d.payments.filter((x) 
 export const personRemaining = (d: Data, p: PersonDebt) => Math.max(0, p.amount - personPaid(d, p))
 /** Kartın bu dönem ödenecek tutarı: girilmişse aylık ödeme, yoksa dönem içi tutar, o da yoksa toplam borç */
 export const cardDue = (c: Card) => Math.min(c.balance, c.monthlyPayment > 0 ? c.monthlyPayment : (c.periodSpend ?? 0) > 0 ? c.periodSpend! : c.balance)
+/** Hesaptaki kendi para + kalan ek hesap / avans limiti */
+export const accountRoom = (a: { balance: number; limit: number }) => {
+  const own = Math.max(0, a.balance)
+  const used = Math.max(0, -a.balance)
+  const limitLeft = Math.max(0, a.limit - used)
+  return { own, used, limitLeft, room: own + limitLeft }
+}
 export const isInterestLoan = (l: Loan) => l.kind === 'interest'
 export const loanRemaining = (l: Loan) =>
   isInterestLoan(l) ? Math.max(0, l.principal ?? 0) : Math.max(0, l.totalInstallments - l.paidInstallments) * l.monthlyPayment

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { useParty } from './store'
+import { useData, useParty } from './store'
+import { accountRoom, tl } from './calc'
 
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   useEffect(() => {
@@ -27,6 +28,50 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       </div>
     </div>,
     document.body,
+  )
+}
+
+/** Seçilen hesabın / kartın para ve limit durumu */
+export function SourceInfo({ source, amount }: { source: string; amount: number }) {
+  const d = useData()
+  let own = 0
+  let limitLeft = 0
+  let used = 0
+  let title = ''
+  if (source.startsWith('acc:')) {
+    const a = d.accounts.find((x) => x.id === source.slice(4))
+    if (!a) return null
+    ;({ own, limitLeft, used } = accountRoom(a))
+    title = a.name
+  } else if (source.startsWith('card:')) {
+    const c = d.cards.find((x) => x.id === source.slice(5))
+    if (!c || !c.limit) return null
+    used = Math.min(c.balance, c.limit)
+    limitLeft = Math.max(0, c.limit - c.balance)
+    title = c.name
+  } else return null
+  const total = own + limitLeft + used || 1
+  const room = own + limitLeft
+  const pct = (n: number) => `${(n / total) * 100}%`
+  return (
+    <div className="col-span-2 rounded-2xl bg-white/5 p-3 text-xs">
+      <div className="mb-2 flex justify-between">
+        <span className="text-mute">{title}</span>
+        <span className="tnum font-semibold">Ödenebilir {tl(room)}</span>
+      </div>
+      <div className="flex h-2.5 overflow-hidden rounded-full bg-white/8">
+        <div className="bg-mint" style={{ width: pct(own) }} />
+        <div className="bg-lilac" style={{ width: pct(limitLeft) }} />
+        <div className="bg-rose/50" style={{ width: pct(used) }} />
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-mute">
+        {own > 0 && <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-mint" />Para {tl(own)}</span>}
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-lilac" />Kalan limit {tl(limitLeft)}</span>
+        {used > 0 && <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-rose/50" />Kullanılan {tl(used)}</span>}
+      </div>
+      {amount > room && <div className="mt-2 text-sun">Bu ödeme kullanılabilir tutarı {tl(amount - room)} aşıyor.</div>}
+      {amount > 0 && amount <= room && own > 0 && amount > own && <div className="mt-2 text-sun">{tl(amount - own)} ek hesap / avans limitinden kullanılacak.</div>}
+    </div>
   )
 }
 
@@ -90,6 +135,7 @@ export function Form({
           {f.hint && <span className="mt-1 block text-xs text-mute/80">{f.hint}</span>}
         </label>
       ))}
+      {v.source && <SourceInfo source={v.source} amount={toNum(v.amount)} />}
       <button disabled={missing} className="btn-primary col-span-2 mt-1 w-full disabled:opacity-40">{submitLabel}</button>
       {onDelete && (
         <button

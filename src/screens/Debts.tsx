@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { update, useData } from '../store'
 import { addMonths, cardDue, cardInstallments, dateLabel, fmtUnit, interestPaidCount, interestSchedule, isInterestLoan, loanRemaining, nextInterest, monthYearLabel, num, personPaid, personRemaining, rateOf, tl, today, uid } from '../calc'
 import { deletePayment, setPeriodSpend, payCard, payInterest, payPerson, saveExpense, setAccountBalance } from '../actions'
-import { AddBtn, Bar, Empty, Form, Section, Segmented, Sheet, toDay, toNum } from '../ui'
+import { AddBtn, Bar, Empty, Form, Section, Segmented, Sheet, SourceInfo, toDay, toNum } from '../ui'
 import type { Account, Card, Currency, Loan, PersonDebt, Scope } from '../types'
 import { CATEGORIES } from './Expenses'
 import { QuickPay } from './Upcoming'
@@ -526,12 +526,9 @@ function Accounts() {
               </div>
               <div className="mt-3 text-xs text-mute">{a.balance < 0 ? 'Kullanılan (borç)' : 'Bakiye'}</div>
               <div className={`tnum text-2xl font-bold ${a.balance >= 0 ? 'text-mint' : ''}`}>{a.balance < 0 ? tl(used) : `+${tl(a.balance)}`}</div>
-              {a.limit > 0 && (
-                <>
-                  <Bar value={1 - used / a.limit} className="mt-2" />
-                  <div className="mt-1 text-xs text-mute">Kullanılabilir {tl(Math.max(0, a.limit - used) + Math.max(0, a.balance))}</div>
-                </>
-              )}
+              <div className="mt-3 grid grid-cols-2">
+                <SourceInfo source={`acc:${a.id}`} amount={0} />
+              </div>
               <button onClick={() => setBal(a)} className="mt-3 w-full rounded-xl bg-white/6 py-2.5 text-sm font-medium text-mint">
                 Güncel bakiyeyi gir
               </button>
