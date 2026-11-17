@@ -58,7 +58,7 @@ export function SourceInfo({ source, amount }: { source: string; amount: number 
     <div className="col-span-2 rounded-2xl bg-white/5 p-3 text-xs">
       <div className="mb-2 flex items-end justify-between">
         <span className="text-mute">{title}</span>
-        {isAcc && <span className={`tnum text-sm font-bold ${own > 0 ? 'text-mint' : ''}`}>{tl(own)}</span>}
+        {isAcc && <span className={`tnum text-sm font-bold ${own > 0 ? 'text-mint' : used > 0 ? 'text-rose' : ''}`}>{used > 0 ? `-${tl(used)}` : tl(own)}</span>}
       </div>
       <div className="flex h-2.5 overflow-hidden rounded-full bg-white/8">
         <div className="bg-mint" style={{ width: pct(own) }} />
@@ -66,7 +66,7 @@ export function SourceInfo({ source, amount }: { source: string; amount: number 
         <div className="bg-rose/60" style={{ width: pct(used) }} />
       </div>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-mute">
-        {isAcc && <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-mint" />Param {tl(own)}</span>}
+        {isAcc && own > 0 && <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-mint" />Param {tl(own)}</span>}
         <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-sun/45" />Limit {tl(limitLeft)}</span>
         {used > 0 && <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-rose/60" />Borç {tl(used)}</span>}
       </div>

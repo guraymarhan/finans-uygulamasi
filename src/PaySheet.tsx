@@ -13,7 +13,7 @@ export function useSourceOptions(allowCards: boolean) {
     ...d.accounts.map((a) => {
       const x = accountRoom(a)
       const mark = x.own > 0 ? '🟢' : x.limitLeft > 0 ? '🟡' : '🔴'
-      return { value: `acc:${a.id}`, label: `${mark} ${a.name}  ${tl(x.own)}${a.limit ? `  (+${tl(x.limitLeft)})` : ''}` }
+      return { value: `acc:${a.id}`, label: `${mark} ${a.name}  ${a.balance < 0 ? '-' + tl(-a.balance) : tl(x.own)}${a.limit ? `  (+${tl(x.limitLeft)})` : ''}` }
     }),
     ...(allowCards
       ? d.cards.map((c) => {
